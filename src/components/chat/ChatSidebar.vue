@@ -178,7 +178,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import RoomInfoModal from './RoomInfoModal.vue';
 import axios from 'axios';
 import { useRoute } from 'vue-router';
@@ -210,6 +210,20 @@ const route = useRoute();
 const fridgeId = ref(route.params.fridgeId);
 
 onMounted(async () => {
+  await fetchChatRooms();
+  await fetchPurchaseRooms();
+  
+  // 채팅방 참여 이벤트 리스너 추가
+  window.addEventListener('chatRoomJoined', handleChatRoomJoined);
+});
+
+onUnmounted(() => {
+  // 이벤트 리스너 제거
+  window.removeEventListener('chatRoomJoined', handleChatRoomJoined);
+});
+
+// 채팅방 목록을 가져오는 함수
+const fetchChatRooms = async () => {
   try {
     const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/chat/my/rooms/${fridgeId.value}`);
     const allRooms = getResultData(response); // 서버에서 받은 채팅방 배열
@@ -221,10 +235,12 @@ onMounted(async () => {
     console.error("API 호출 에러:", error);
     alert(getErrorMessage(error));
   } finally {
-    // 2. API 호출이 성공하든 실패하든, 마지막에는 로딩 상태를 false로 변경
     isLoading.value = false;
   }
+};
 
+// 공동구매 채팅방 목록을 가져오는 함수
+const fetchPurchaseRooms = async () => {
   try {
     const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/purchase/chat/list/${fridgeId.value}`);
     purchaseRooms.value = getResultData(response); // 서버에서 받은 채팅방 배열
@@ -232,10 +248,19 @@ onMounted(async () => {
     console.error("API 호출 에러:", error);
     alert(getErrorMessage(error));
   } finally {
-    // 2. API 호출이 성공하든 실패하든, 마지막에는 로딩 상태를 false로 변경
     isLoading.value = false;
   }
-});
+};
+
+// 채팅방 참여 이벤트 핸들러
+const handleChatRoomJoined = async (event) => {
+  const { roomId } = event.detail;
+  console.log('채팅방 참여됨:', roomId);
+  
+  // 채팅방 목록 새로고침
+  await fetchChatRooms();
+  await fetchPurchaseRooms();
+};
 
 // [수정] createChatRoom 함수가 새 모달을 열도록 변경
 const createChatRoom = () => {

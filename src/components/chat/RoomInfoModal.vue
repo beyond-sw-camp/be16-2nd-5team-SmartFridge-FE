@@ -94,6 +94,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue';
+import { useStore } from 'vuex';
 import axios from 'axios';
 import { getResultData } from '@/utils/commonDataHandler';
 
@@ -106,6 +107,9 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 
+// store 사용
+const store = useStore();
+
 // [추가] 모달 내부에서 사용할 상태 변수들
 const roomDetails = ref(null); // API로 받아온 상세 데이터를 저장
 const isLoading = ref(false);  // 로딩 상태
@@ -114,14 +118,36 @@ const error = ref(null);       // 에러 메시지
 const joinRoom = async(roomId) => {
   console.log('채팅방 참여:', roomId);
   try {
-    closeModal();
+    isLoading.value = true;
+    
     // roomId를 사용해 상세 정보 API 호출
     await axios.post(`${process.env.VUE_APP_API_BASE_URL}/purchase/chat/${roomId}/join`);
+    
+    // 채팅방이 가득 찼는지 확인
+    if (roomDetails.value && isRoomFull.value) {
+      // 채팅방 개설자에게 알림 발송
+      const notificationData = {
+        type: 'ROOM_FULL',
+        title: '공동 구매 채팅방이 가득 찼습니다',
+        message: '공동 구매 채팅방이 가득 찼습니다',
+        fridgeId: roomDetails.value.fridgeId || null,
+        roomId: roomId,
+        timestamp: new Date().toISOString()
+      };
+      
+      // store에 알림 추가
+      store.commit('notification/addNotification', notificationData);
+    }
+    
     alert("채팅방에 성공적으로 참여했습니다.");
-    window.location().reload();
+    closeModal();
+    
+    // 페이지 새로고침 대신 이벤트 발생
+    window.dispatchEvent(new CustomEvent('chatRoomJoined', { detail: { roomId } }));
 
   } catch (err) {
     console.error("채팅방 참여 실패:", err);
+    alert("채팅방 참여에 실패했습니다.");
   } finally {
     isLoading.value = false;
   }

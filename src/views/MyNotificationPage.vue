@@ -162,6 +162,7 @@
 
 <script>
 import axios from "axios";
+import { ref } from 'vue';
 
 export default {
   name: 'MyNotificationPage',
@@ -184,7 +185,7 @@ export default {
   
   async created() {
     // 현재 사용자의 냉장고 ID 설정
-    this.fridgeId = this.$store.state.user.userInfo?.fridgeId || 1;
+    this.fridgeId = ref(route.params.fridgeId);
     await this.fetchNotifications();
     window.addEventListener('scroll', this.handleScroll);
   },
