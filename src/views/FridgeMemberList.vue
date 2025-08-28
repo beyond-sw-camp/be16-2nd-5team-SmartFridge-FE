@@ -206,75 +206,20 @@
 
 <script setup>
 import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue';
-import { useStore } from 'vuex';
-import { useRouter } from 'vue-router';
 import SockJS from 'sockjs-client';
 import Stomp from 'webstomp-client';
 import axios from 'axios';
 import { getErrorMessage, getResultData } from '@/utils/commonDataHandler';
-
-// Store와 Router 사용
-const store = useStore();
-const vueRouter = useRouter();
+import { useStore } from 'vuex';
 
 // --- 상태 변수 ---
+const store = useStore();
 const searchQuery = ref('');
 const selectedUser = ref(null);
 const newMessage = ref('');
 const chatMessages = ref([]);
-// Store에서 냉장고 ID 가져오기 (안전한 방식)
-const fridgeId = computed(() => {
-  const id = store.getters.getCurrentFridgeId;
-  console.log('Store에서 가져온 냉장고 ID:', id, '타입:', typeof id);
-  
-  // undefined, null, "undefined", "null" 문자열 체크
-  if (!id || id === 'undefined' || id === 'null') {
-    console.warn('Store에서 유효하지 않은 냉장고 ID를 가져왔습니다:', id);
-    return null;
-  }
-  
-  // 숫자로 변환 가능한지 확인
-  const numericId = Number(id);
-  if (isNaN(numericId)) {
-    console.warn('냉장고 ID가 유효한 숫자가 아닙니다:', id);
-    return null;
-  }
-  
-  return numericId;
-});
+const fridgeId = computed(() => store.getters.getCurrentFridgeId);
 const chatContainerRef = ref(null);
-
-// 냉장고 ID 검증 및 리다이렉트
-const validateFridgeId = () => {
-  console.log('현재 fridgeId 값:', fridgeId.value, '타입:', typeof fridgeId.value);
-  
-  if (!fridgeId.value || fridgeId.value === 'undefined' || fridgeId.value === 'null') {
-    console.warn('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
-    
-    // localStorage에서 한 번 더 확인
-    const localFridgeId = localStorage.getItem('currentFridgeId');
-    if (localFridgeId && localFridgeId !== 'undefined' && localFridgeId !== 'null') {
-      const numericId = Number(localFridgeId);
-      if (!isNaN(numericId)) {
-        console.log('localStorage에서 유효한 냉장고 ID 발견, Store에 복구:', numericId);
-        store.commit('setCurrentFridgeId', numericId);
-        return true; // 복구 성공
-      }
-    }
-    
-    vueRouter.push('/fridge/list');
-    return false;
-  }
-  
-  // 숫자 타입 확인
-  if (typeof fridgeId.value !== 'number' || isNaN(fridgeId.value)) {
-    console.warn('냉장고 ID가 유효한 숫자가 아닙니다:', fridgeId.value);
-    vueRouter.push('/fridge/list');
-    return false;
-  }
-  
-  return true;
-};
 
 // WebSocket 관련 상태
 const stompClient = ref(null);
@@ -299,20 +244,6 @@ const guide = ref([
 // --- API 함수 ---
 const fetchUsers = async () => {
   try {
-    // 냉장고 ID 검증
-    if (!validateFridgeId()) {
-      console.error('fetchUsers: 냉장고 ID 검증 실패');
-      return;
-    }
-    
-    console.log('API 호출 시 fridgeId:', fridgeId.value, '타입:', typeof fridgeId.value);
-    
-    // 추가 검증: fridgeId가 유효한 숫자인지 확인
-    if (typeof fridgeId.value !== 'number' || isNaN(fridgeId.value)) {
-      console.error('fetchUsers: 유효하지 않은 냉장고 ID:', fridgeId.value);
-      return;
-    }
-    
     const response = await axios.get(
       `${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId.value}/members`,
       { headers: { 'Authorization': `Bearer ${token.value}` } }
@@ -340,15 +271,6 @@ const filteredUsers = computed(() => {
 });
 
 // --- Watcher ---
-// fridgeId 변경 감지
-watch(fridgeId, (newId, oldId) => {
-  console.log('fridgeId 변경 감지:', oldId, '->', newId);
-  if (newId && newId !== oldId) {
-    console.log('새로운 냉장고 ID로 사용자 목록 새로고침');
-    fetchUsers();
-  }
-});
-
 watch(selectedUser, async (newUser, oldUser) => {
   if (oldUser) {
     disconnectWebSocket();
@@ -510,11 +432,6 @@ const removeImage = (index) => {
 const promoteToAdmin = async (user) => {
   if (confirm(`${user.name}님을 관리자로 승격하시겠습니까?`)) {
     try {
-      // 냉장고 ID 검증
-      if (!validateFridgeId()) return;
-      
-      console.log('관리자 승격 API 호출 시 fridgeId:', fridgeId.value);
-      
       await axios.put(
         `${process.env.VUE_APP_API_BASE_URL}/${fridgeId.value}/members/${user.email}/role`,
         { role: 'MANAGER' },
@@ -531,11 +448,6 @@ const promoteToAdmin = async (user) => {
 const removeUser = async (user) => {
   if (confirm(`${user.name}님을 냉장고에서 제거하시겠습니까?`)) {
     try {
-      // 냉장고 ID 검증
-      if (!validateFridgeId()) return;
-      
-      console.log('사용자 제거 API 호출 시 fridgeId:', fridgeId.value);
-      
       await axios.delete(
         `${process.env.VUE_APP_API_BASE_URL}/${fridgeId.value}/members/${user.email}`,
         { headers: { 'Authorization': `Bearer ${token.value}` } }
@@ -553,41 +465,7 @@ const removeUser = async (user) => {
 
 
 // --- 생명주기 훅 ---
-onMounted(async () => {
-  console.log('컴포넌트 마운트 시 Store 상태:', store.state);
-  console.log('현재 냉장고 ID:', store.getters.getCurrentFridgeId);
-  console.log('localStorage currentFridgeId:', localStorage.getItem('currentFridgeId'));
-  
-  // Store에 냉장고 ID가 없으면 localStorage에서 직접 확인
-  if (!store.getters.getCurrentFridgeId) {
-    const localFridgeId = localStorage.getItem('currentFridgeId');
-    if (localFridgeId && localFridgeId !== 'undefined' && localFridgeId !== 'null') {
-      console.log('localStorage에서 냉장고 ID 복구:', localFridgeId);
-      store.commit('setCurrentFridgeId', localFridgeId);
-    }
-  }
-  
-  // 추가 검증: localStorage에서 직접 가져온 값도 확인
-  const directLocalFridgeId = localStorage.getItem('currentFridgeId');
-  if (directLocalFridgeId && directLocalFridgeId !== 'undefined' && directLocalFridgeId !== 'null') {
-    const numericId = Number(directLocalFridgeId);
-    if (!isNaN(numericId)) {
-      console.log('localStorage에서 직접 가져온 유효한 냉장고 ID:', numericId);
-      store.commit('setCurrentFridgeId', numericId);
-    }
-  }
-  
-  // 컴포넌트 마운트 시 냉장고 ID 검증
-  if (validateFridgeId()) {
-    console.log('냉장고 ID 검증 성공, 사용자 목록 조회 시작');
-    fetchUsers();
-  } else {
-    console.error('냉장고 ID 검증 실패 - Store에서 가져온 값:', store.getters.getCurrentFridgeId);
-    console.error('localStorage 값:', localStorage.getItem('currentFridgeId'));
-    // 냉장고 목록 페이지로 리다이렉트
-    vueRouter.push('/fridge/list');
-  }
-});
+onMounted(fetchUsers);
 
 onUnmounted(disconnectWebSocket);
 </script>
