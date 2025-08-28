@@ -160,219 +160,216 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { useStore } from 'vuex';
+import { useRouter } from 'vue-router';
 import axios from "axios";
-import { ref } from 'vue';
+import { getFridgeId } from '@/utils/commonDataHandler';
 
-export default {
-  name: 'MyNotificationPage',
-  data() {
-    return {
-      notificationList: [],
-      selectedTab: "all",
-      selectedCategory: "ALL",
-      fridgeId: null, // 동적으로 설정
-      hoveredId: null,
-      deleteDialog: false,
-      deleteTarget: null,
-      userType: 'COMMON',
-      currentPage: 0,
-      pageSize: 20,
-      hasMoreData: true,
-      isLoading: false
-    };
-  },
-  
-  async created() {
-    // 현재 사용자의 냉장고 ID 설정
-    this.fridgeId = ref(route.params.fridgeId);
-    await this.fetchNotifications();
-    window.addEventListener('scroll', this.handleScroll);
-  },
-  
-  beforeUnmount() {
-    window.removeEventListener('scroll', this.handleScroll);
-  },
-  
-  computed: {
-    sortedNotifications() {
-      let filteredNotifications = this.notificationList;
+// Vue Router와 Vuex Store 인스턴스 가져오기
+const store = useStore();
+const router = useRouter();
 
-      if (this.selectedCategory !== "ALL") {
-        filteredNotifications = filteredNotifications.filter(n => n.type === this.selectedCategory);
+// reactive 상태 변수 정의
+const notificationList = ref([]);
+const selectedTab = ref("all");
+const selectedCategory = ref("ALL");
+const fridgeId = ref(getFridgeId(store));
+const hoveredId = ref(null);
+const deleteDialog = ref(false);
+const deleteTarget = ref(null);
+const userType = ref('COMMON');
+const currentPage = ref(0);
+const pageSize = ref(20);
+const hasMoreData = ref(true);
+const isLoading = ref(false);
+
+// methods를 일반 함수로 변환
+const fetchNotifications = async (isLoadMore = false) => {
+  if (isLoading.value) return;
+  isLoading.value = true;
+  
+  try {
+    let url = `${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId.value}/notification/list`;
+    const params = new URLSearchParams();
+    if (selectedCategory.value !== "ALL") {
+      if (selectedCategory.value.includes(',')) {
+        selectedCategory.value.split(',').forEach(type => {
+          params.append('notificationType', type.trim());
+        });
+      } else {
+        params.append('notificationType', selectedCategory.value);
       }
-
-      const unreadNotifications = filteredNotifications.filter(n => !n.read);
-      const readNotifications = filteredNotifications.filter(n => n.read);
-
-      const sortedUnread = unreadNotifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      const sortedRead = readNotifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-      return [...sortedUnread, ...sortedRead];
     }
-  },
+    params.append('page', currentPage.value.toString());
+    params.append('size', pageSize.value.toString());
+    if (params.toString()) url += `?${params.toString()}`;
 
-  methods: {
-    // fetch 알림 목록
-    async fetchNotifications(isLoadMore = false) {
-      if (this.isLoading) return;
-      this.isLoading = true;
-      
-      try {
-        let url = `${process.env.VUE_APP_API_BASE_URL}/fridge/${this.fridgeId}/notification/list`;
-        const params = new URLSearchParams();
-        if (this.selectedCategory !== "ALL") {
-          // 여러 알림 타입을 쉼표로 구분하여 처리
-          if (this.selectedCategory.includes(',')) {
-            this.selectedCategory.split(',').forEach(type => {
-              params.append('notificationType', type.trim());
-            });
-          } else {
-            params.append('notificationType', this.selectedCategory);
-          }
-        }
-        params.append('page', this.currentPage.toString());
-        params.append('size', this.pageSize.toString());
-        if (params.toString()) url += `?${params.toString()}`;
+    const response = await axios.get(url);
+    const newNotifications = response.data.result.content;
 
-        const response = await axios.get(url);
-        const newNotifications = response.data.result.content;
-
-        if (isLoadMore) {
-          this.notificationList = [...this.notificationList, ...newNotifications];
-        } else {
-          this.notificationList = newNotifications;
-          this.setUserType();
-        }
-
-        this.hasMoreData = newNotifications.length === this.pageSize;
-      } catch (error) {
-        console.error('알림 조회 실패:', error);
-      } finally {
-        this.isLoading = false;
-      }
-    },
-
-    setUserType() {
-      if (this.notificationList.length > 0) {
-        const memberType = this.notificationList[0].fridgeMemberType;
-        if (!memberType) this.userType = 'ADMIN';
-        else this.userType = memberType === 'MANAGER' ? 'MANAGER' : 'COMMON';
-      }
-    },
-
-    filterByTab(tab) {
-      this.selectedTab = tab;
-
-      if (tab === "qa") {
-        // 페이지에서는 문의 탭 클릭 시 fetch하지 않음
-        return;
-      }
-
-      let category = "ALL";
-      if (tab === "food-register") category = "NEW_FOOD";
-      else if (tab === "expiration") category = "EXPIRATION_IMMINENT";
-      else if (tab === "post") category = "NEW_ANNOUNCEMENT";
-      else if (tab === "comment") category = "NEW_COMMENT";
-      else if (tab === "inquiry-reply") category = "INQUIRY_REPLY,NEW_INQUIRY";
-      else if (tab === "member") category = "NEW_MEMBER";
-
-      this.selectedCategory = category;
-      this.resetPagination();
-      this.fetchNotifications();
-    },
-
-    getNotificationType(notification) {
-      if (notification.type === "NEW_FOOD") return "food-register";
-      if (notification.type === "EXPIRATION_IMMINENT") return "expiration";
-      if (notification.type === "NEW_ANNOUNCEMENT") return "post";
-      if (notification.type === "NEW_COMMENT") return "comment";
-      if (notification.type === "INQUIRY_REPLY") return "inquiry-reply";
-      if (notification.type === "NEW_INQUIRY") return "inquiry-reply";
-      if (notification.type === "NEW_MEMBER") return "member";
-      return "other";
-    },
-
-    getNotificationText(notification) {
-      if (notification.type === "EXPIRATION_IMMINENT") return `${notification.content || '음식'}의 유통기한이 곧 만료됩니다`;
-      if (notification.type === "NEW_FOOD") return `${notification.content || '새로운 음식'}이 냉장고에 등록되었습니다`;
-      if (notification.type === "NEW_ANNOUNCEMENT") return `${notification.content || '새로운 공지사항'}이 게시되었습니다`;
-      if (notification.type === "NEW_COMMENT") return `${notification.content || '새로운 댓글'}이 등록되었습니다`;
-      if (notification.type === "INQUIRY_REPLY") return `${notification.content || '새로운 문의 답변'}이 등록되었습니다`;
-      if (notification.type === "NEW_INQUIRY") return `${notification.content || '새로운 문의'}가 등록되었습니다`;
-      if (notification.type === "NEW_MEMBER") return `${notification.content || '새로운 멤버'}가 냉장고에 참여했습니다`;
-      return notification.content || '새로운 알림이 있습니다';
-    },
-
-    getExpirationDays(notification) {
-      if (notification.type === "EXPIRATION_IMMINENT") {
-        const today = new Date();
-        const expirationDate = new Date(notification.expirationDate || notification.createdAt);
-        return Math.max(0, Math.ceil((expirationDate - today) / (1000*60*60*24)));
-      }
-      return 0;
-    },
-
-    isUrgentExpiration(notification) {
-      if (notification.type === "EXPIRATION_IMMINENT") return this.getExpirationDays(notification) <= 3;
-      return false;
-    },
-
-    formatTimeAgo(dateStr) {
-      const date = new Date(dateStr);
-      const now = new Date();
-      const diffMs = now - date;
-      const diffHours = Math.floor(diffMs / (1000*60*60));
-      const diffDays = Math.floor(diffMs / (1000*60*60*24));
-      if (diffDays > 0) return `${diffDays}일 전`;
-      else if (diffHours > 0) return `${diffHours}시간 전`;
-      return "방금 전";
-    },
-
-    goToDetail(notification) {
-      if (notification.targetType === "ANNOUNCE") this.$router.push(`/fridge/${this.fridgeId}/post/${notification.targetId}`);
-      else if (notification.targetType === "FOOD") this.$router.push(`/food/${notification.targetId}`);
-    },
-
-    confirmDelete(notification) {
-      this.deleteTarget = notification;
-      this.deleteDialog = true;
-    },
-
-    async deleteNotification() {
-      if (!this.deleteTarget) return;
-      try {
-        await axios.delete(`${process.env.VUE_APP_API_BASE_URL}/fridge/${this.fridgeId}/notification/delete/${this.deleteTarget.id}`);
-        this.notificationList = this.notificationList.filter(n => n.id !== this.deleteTarget.id);
-        this.deleteDialog = false;
-        this.deleteTarget = null;
-      } catch (error) {
-        console.error('알림 삭제 실패:', error);
-      }
-    },
-
-    handleMouseEnter(notificationId) { this.hoveredId = notificationId; },
-    handleMouseLeave() { this.hoveredId = null; },
-
-    resetPagination() { this.currentPage = 0; this.hasMoreData = true; this.notificationList = []; },
-    async loadMoreData() { if (!this.hasMoreData || this.isLoading) return; this.currentPage++; await this.fetchNotifications(true); },
-
-    handleScroll() {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const windowHeight = window.innerHeight;
-      const documentHeight = document.documentElement.scrollHeight;
-      if (scrollTop + windowHeight >= documentHeight - 100) this.loadMoreData();
-    },
-
-    async readAll() {
-      try {
-        const readNotification = this.notificationList.map(n => ({ notificationId: n.id }));
-        await axios.patch(`${process.env.VUE_APP_API_BASE_URL}/fridge/${this.fridgeId}/notification/isRead`, readNotification);
-        await this.fetchNotifications();
-      } catch (error) { console.error('모두 읽음 처리 실패:', error); }
+    if (isLoadMore) {
+      notificationList.value = [...notificationList.value, ...newNotifications];
+    } else {
+      notificationList.value = newNotifications;
+      setUserType();
     }
+
+    hasMoreData.value = newNotifications.length === pageSize.value;
+  } catch (error) {
+    console.error('알림 조회 실패:', error);
+  } finally {
+    isLoading.value = false;
   }
 };
+
+const setUserType = () => {
+  if (notificationList.value.length > 0) {
+    const memberType = notificationList.value[0].fridgeMemberType;
+    if (!memberType) userType.value = 'ADMIN';
+    else userType.value = memberType === 'MANAGER' ? 'MANAGER' : 'COMMON';
+  }
+};
+
+const filterByTab = (tab) => {
+  selectedTab.value = tab;
+  if (tab === "qa") {
+    return;
+  }
+  let category = "ALL";
+  if (tab === "food-register") category = "NEW_FOOD";
+  else if (tab === "expiration") category = "EXPIRATION_IMMINENT";
+  else if (tab === "post") category = "NEW_ANNOUNCEMENT";
+  else if (tab === "comment") category = "NEW_COMMENT";
+  else if (tab === "inquiry-reply") category = "INQUIRY_REPLY,NEW_INQUIRY";
+  else if (tab === "member") category = "NEW_MEMBER";
+  selectedCategory.value = category;
+  resetPagination();
+  fetchNotifications();
+};
+
+const getNotificationType = (notification) => {
+  if (notification.type === "NEW_FOOD") return "food-register";
+  if (notification.type === "EXPIRATION_IMMINENT") return "expiration";
+  if (notification.type === "NEW_ANNOUNCEMENT") return "post";
+  if (notification.type === "NEW_COMMENT") return "comment";
+  if (notification.type === "INQUIRY_REPLY") return "inquiry-reply";
+  if (notification.type === "NEW_INQUIRY") return "inquiry-reply";
+  if (notification.type === "NEW_MEMBER") return "member";
+  return "other";
+};
+
+const getNotificationText = (notification) => {
+  if (notification.type === "EXPIRATION_IMMINENT") return `${notification.content || '음식'}의 유통기한이 곧 만료됩니다`;
+  if (notification.type === "NEW_FOOD") return `${notification.content || '새로운 음식'}이 냉장고에 등록되었습니다`;
+  if (notification.type === "NEW_ANNOUNCEMENT") return `${notification.content || '새로운 공지사항'}이 게시되었습니다`;
+  if (notification.type === "NEW_COMMENT") return `${notification.content || '새로운 댓글'}이 등록되었습니다`;
+  if (notification.type === "INQUIRY_REPLY") return `${notification.content || '새로운 문의 답변'}이 등록되었습니다`;
+  if (notification.type === "NEW_INQUIRY") return `${notification.content || '새로운 문의'}가 등록되었습니다`;
+  if (notification.type === "NEW_MEMBER") return `${notification.content || '새로운 멤버'}가 냉장고에 참여했습니다`;
+  return notification.content || '새로운 알림이 있습니다';
+};
+
+const getExpirationDays = (notification) => {
+  if (notification.type === "EXPIRATION_IMMINENT") {
+    const today = new Date();
+    const expirationDate = new Date(notification.expirationDate || notification.createdAt);
+    return Math.max(0, Math.ceil((expirationDate - today) / (1000 * 60 * 60 * 24)));
+  }
+  return 0;
+};
+
+const isUrgentExpiration = (notification) => {
+  if (notification.type === "EXPIRATION_IMMINENT") return getExpirationDays(notification) <= 3;
+  return false;
+};
+
+const formatTimeAgo = (dateStr) => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays > 0) return `${diffDays}일 전`;
+  else if (diffHours > 0) return `${diffHours}시간 전`;
+  return "방금 전";
+};
+
+const goToDetail = (notification) => {
+  if (notification.targetType === "ANNOUNCE") router.push(`/fridge/${fridgeId.value}/post/${notification.targetId}`);
+  else if (notification.targetType === "FOOD") router.push(`/food/${notification.targetId}`);
+};
+
+const confirmDelete = (notification) => {
+  deleteTarget.value = notification;
+  deleteDialog.value = true;
+};
+
+const deleteNotification = async () => {
+  if (!deleteTarget.value) return;
+  try {
+    await axios.delete(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId.value}/notification/delete/${deleteTarget.value.id}`);
+    notificationList.value = notificationList.value.filter(n => n.id !== deleteTarget.value.id);
+    deleteDialog.value = false;
+    deleteTarget.value = null;
+  } catch (error) {
+    console.error('알림 삭제 실패:', error);
+  }
+};
+
+const handleMouseEnter = (notificationId) => { hoveredId.value = notificationId; };
+const handleMouseLeave = () => { hoveredId.value = null; };
+
+const resetPagination = () => { 
+  currentPage.value = 0;
+  hasMoreData.value = true;
+  notificationList.value = [];
+};
+
+const loadMoreData = async () => { 
+  if (!hasMoreData.value || isLoading.value) return;
+  currentPage.value++;
+  await fetchNotifications(true);
+};
+
+const handleScroll = () => {
+  const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+  const windowHeight = window.innerHeight;
+  const documentHeight = document.documentElement.scrollHeight;
+  if (scrollTop + windowHeight >= documentHeight - 100) loadMoreData();
+};
+
+const readAll = async () => {
+  try {
+    const readNotification = notificationList.value.map(n => ({ notificationId: n.id }));
+    await axios.patch(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId.value}/notification/isRead`, readNotification);
+    await fetchNotifications();
+  } catch (error) { console.error('모두 읽음 처리 실패:', error); }
+};
+
+// computed 속성
+const sortedNotifications = computed(() => {
+  let filteredNotifications = notificationList.value;
+  if (selectedCategory.value !== "ALL") {
+    filteredNotifications = filteredNotifications.filter(n => n.type === selectedCategory.value);
+  }
+  const unreadNotifications = filteredNotifications.filter(n => !n.read);
+  const readNotifications = filteredNotifications.filter(n => n.read);
+  const sortedUnread = unreadNotifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const sortedRead = readNotifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return [...sortedUnread, ...sortedRead];
+});
+
+// 라이프사이클 훅
+onMounted(async () => {
+  await fetchNotifications();
+  window.addEventListener('scroll', handleScroll);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', handleScroll);
+});
 </script>
 
 

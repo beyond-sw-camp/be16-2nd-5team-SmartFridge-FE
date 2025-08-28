@@ -205,7 +205,7 @@ const managerRoom = ref(null);    // 첫 번째 채팅방
 const myPurchaseRooms = ref([]);     // 나머지 모든 채팅방
 const purchaseRooms = ref([]);     // 공동구매 채팅방
 const isLoading = ref(true); // 1. 로딩 상태를 관리할 ref 추가 (초기값 true)
-const fridgeId = ref(getFridgeId());
+const fridgeId = ref(getFridgeId(store));
 
 onMounted(async () => {
   await fetchChatRooms();
