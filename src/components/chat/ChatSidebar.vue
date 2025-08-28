@@ -178,10 +178,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import RoomInfoModal from './RoomInfoModal.vue';
 import axios from 'axios';
-import { useRoute } from 'vue-router';
 import { getErrorMessage, getResultData } from '@/utils/commonDataHandler';
 import CreateRoomModal from './CreateRoomModal.vue';
 import { useStore } from 'vuex';
@@ -206,11 +205,39 @@ const managerRoom = ref(null);    // 첫 번째 채팅방
 const myPurchaseRooms = ref([]);     // 나머지 모든 채팅방
 const purchaseRooms = ref([]);     // 공동구매 채팅방
 const isLoading = ref(true); // 1. 로딩 상태를 관리할 ref 추가 (초기값 true)
-const route = useRoute();
-const fridgeId = ref(route.params.fridgeId);
+// Store에서 냉장고 ID 가져오기 (안전한 방식)
+const fridgeId = computed(() => {
+  const id = store.getters.getCurrentFridgeId;
+  console.log('ChatSidebar - Store에서 가져온 냉장고 ID:', id, '타입:', typeof id);
+  
+  // undefined, null, "undefined", "null" 문자열 체크
+  if (!id || id === 'undefined' || id === 'null') {
+    console.warn('ChatSidebar - Store에서 유효하지 않은 냉장고 ID를 가져왔습니다:', id);
+    return null;
+  }
+  
+  // 숫자로 변환 가능한지 확인
+  const numericId = Number(id);
+  if (isNaN(numericId)) {
+    console.warn('ChatSidebar - 냉장고 ID가 유효한 숫자가 아닙니다:', id);
+    return null;
+  }
+  
+  return numericId;
+});
 
 onMounted(async () => {
+  console.log('ChatSidebar 마운트 시 fridgeId:', fridgeId.value);
+  
+  // 냉장고 ID 검증
+  if (!fridgeId.value) {
+    console.error('ChatSidebar: 냉장고 ID가 없습니다. API 호출을 건너뜁니다.');
+    isLoading.value = false;
+    return;
+  }
+  
   try {
+    console.log('채팅방 목록 API 호출:', `${process.env.VUE_APP_API_BASE_URL}/chat/my/rooms/${fridgeId.value}`);
     const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/chat/my/rooms/${fridgeId.value}`);
     const allRooms = getResultData(response); // 서버에서 받은 채팅방 배열
 
@@ -218,7 +245,7 @@ onMounted(async () => {
     managerRoom.value = first;
     myPurchaseRooms.value = rest;
   } catch (error) {
-    console.error("API 호출 에러:", error);
+    console.error("채팅방 목록 API 호출 에러:", error);
     alert(getErrorMessage(error));
   } finally {
     // 2. API 호출이 성공하든 실패하든, 마지막에는 로딩 상태를 false로 변경
@@ -226,10 +253,11 @@ onMounted(async () => {
   }
 
   try {
+    console.log('공동구매 채팅방 목록 API 호출:', `${process.env.VUE_APP_API_BASE_URL}/purchase/chat/list/${fridgeId.value}`);
     const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/purchase/chat/list/${fridgeId.value}`);
     purchaseRooms.value = getResultData(response); // 서버에서 받은 채팅방 배열
   } catch (error) {
-    console.error("API 호출 에러:", error);
+    console.error("공동구매 채팅방 목록 API 호출 에러:", error);
     alert(getErrorMessage(error));
   } finally {
     // 2. API 호출이 성공하든 실패하든, 마지막에는 로딩 상태를 false로 변경
@@ -264,14 +292,33 @@ const viewRoomInfo = (room, isParticipant) => {
   isParticipantforModal.value = isParticipant; // 참여자 여부를 저장
 };
 
+// fridgeId 변경 감지 및 채팅방 목록 새로고침
+watch(fridgeId, (newId, oldId) => {
+  console.log('ChatSidebar - fridgeId 변경 감지:', oldId, '->', newId);
+  if (newId && newId !== oldId) {
+    console.log('ChatSidebar - 새로운 냉장고 ID로 채팅방 목록 새로고침');
+    // 컴포넌트가 마운트된 후에만 새로고침
+    if (isLoading.value === false) {
+      onMounted();
+    }
+  }
+});
+
 const leaveRoom = async(room) => {
   console.log('방 나가기:', room.title);
+  
+  // 냉장고 ID 검증
+  if (!fridgeId.value) {
+    console.error('ChatSidebar: 냉장고 ID가 없습니다. 방 나가기를 건너뜁니다.');
+    return;
+  }
+  
   try {
     await axios.delete(`${process.env.VUE_APP_API_BASE_URL}/purchase/chat/${room.roomId}/leave`);
     alert('방에서 나갔습니다.');
     window.location.reload();
   } catch (error) {
-    console.error("API 호출 에러:", error);
+    console.error("방 나가기 API 호출 에러:", error);
     alert(getErrorMessage(error));
   } finally {
     // 2. API 호출이 성공하든 실패하든, 마지막에는 로딩 상태를 false로 변경
