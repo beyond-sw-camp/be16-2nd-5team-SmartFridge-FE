@@ -209,15 +209,14 @@ import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue';
 import SockJS from 'sockjs-client';
 import Stomp from 'webstomp-client';
 import axios from 'axios';
-import router from '@/router';
-import { getErrorMessage, getResultData } from '@/utils/commonDataHandler';
+import { getErrorMessage, getFridgeId, getResultData } from '@/utils/commonDataHandler';
 
 // --- 상태 변수 ---
 const searchQuery = ref('');
 const selectedUser = ref(null);
 const newMessage = ref('');
 const chatMessages = ref([]);
-const fridgeId = ref(router.currentRoute.value.params.fridgeId);
+const fridgeId = ref(getFridgeId)
 const chatContainerRef = ref(null);
 
 // WebSocket 관련 상태
