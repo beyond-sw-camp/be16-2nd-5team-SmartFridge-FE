@@ -3,7 +3,7 @@ import FridgeDashboard from "@/views/FridgeDashBoard.vue";
 import SharedFood from "@/views/SharedFood.vue";
 import FridgeMemberList from "@/views/FridgeMemberList.vue";
 
-export const FoodRouter = [
+export const FridgeRouter = [
   {
     path: '/fridge/list',
     name: 'FridgeList',
@@ -11,17 +11,17 @@ export const FoodRouter = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/fridge/:fridgeId/dashboard',
+    path: '/fridge/dashboard',
     name: 'FridgeDashboard',
     component: FridgeDashboard
   },
   {
-    path: '/fridge/:fridgeId/food/shared',
+    path: '/fridge/food/shared',
     name: 'SharedFood',
     component: SharedFood
   },
   {
-    path: '/fridge/:fridgeId/member/list',
+    path: '/fridge/member/list',
     name: 'FridgeMemberList',
     component: FridgeMemberList
   },

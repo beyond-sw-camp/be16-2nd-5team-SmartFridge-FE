@@ -92,11 +92,17 @@
 <script setup>
 import axios from 'axios';
 import { ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
 import router from '@/router';
 import FoodFormModal from '@/components/Food/FoodFormModal.vue';
 
-const route = useRoute();
+// Props 정의
+const props = defineProps({
+  fridgeId: {
+    type: String,
+    required: true
+  }
+});
+
 const recentFoods = ref([])
 const recentSharedFoods = ref([])
 
@@ -135,10 +141,13 @@ const openFoodModal = (isShared) => {
 // 식품 저장 처리
 const handleFoodSave = async (foodData) => {
   try {
-    const fridgeId = route.params.fridgeId;
+    if (!props.fridgeId) {
+      console.warn('Props에서 냉장고 ID를 찾을 수 없습니다.');
+      return;
+    }
     
     // 식품 등록 API 호출
-    await axios.post(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/food/register`, foodData);
+    await axios.post(`${process.env.VUE_APP_API_BASE_URL}/fridge/${props.fridgeId}/food/register`, foodData);
     
     // 성공 메시지
     console.log('식품이 성공적으로 등록되었습니다.');
@@ -165,8 +174,12 @@ const refreshFoodLists = async () => {
 
 const fetchRecentFoods = async () => {
   try {
-    const fridgeId = route.params.fridgeId;
-    const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/food/list?isShared=false`);
+    if (!props.fridgeId) {
+      console.warn('Props에서 냉장고 ID를 찾을 수 없습니다.');
+      return;
+    }
+    
+    const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/fridge/${props.fridgeId}/food/list?isShared=false`);
     
     console.log('API 응답 데이터:', response.data.result.content);
     
@@ -187,8 +200,12 @@ const fetchRecentFoods = async () => {
 
 const fetchRecentSharedFoods = async () => {
   try {
-    const fridgeId = route.params.fridgeId;
-    const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/food/list?isShared=true`);
+    if (!props.fridgeId) {
+      console.warn('Props에서 냉장고 ID를 찾을 수 없습니다.');
+      return;
+    }
+    
+    const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/fridge/${props.fridgeId}/food/list?isShared=true`);
     
     console.log('공유식품 API 응답 데이터:', response.data.result.content);
     
@@ -213,13 +230,13 @@ onMounted(() => {
 });
 
 const goToSharedFoodList = () => {
-  router.push(`/fridge/${route.params.fridgeId}/food/shared`);
+  router.push(`/fridge/${props.fridgeId}/food/shared`);
 }
 
 const goToNonsharedFoodList = () => {
   // 전체식품 페이지로 이동하면서 개인식품 모드로 설정
   router.push({
-    path: `/fridge/${route.params.fridgeId}/food/shared`,
+    path: `/fridge/${props.fridgeId}/food/shared`,
     query: { mode: 'nonshared' }
   });
 }

@@ -177,8 +177,11 @@ export default {
     async fetchPostList() {
       try {
         this.isLoading = true;
-        const fridgeId = this.$route.params.fridgeId;
-        if (!fridgeId) return;
+        const fridgeId = this.$store.getters.getCurrentFridgeId;
+        if (!fridgeId) {
+          console.warn('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
+          return;
+        }
 
         let url = `${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/post/list?page=${this.currentPage - 1}&size=${this.pageSize}`;
 
@@ -220,8 +223,11 @@ export default {
 
     async handleSave(postData) {
       try {
-        const fridgeId = this.$route.params.fridgeId;
-        if (!fridgeId) return;
+        const fridgeId = this.$store.getters.getCurrentFridgeId;
+        if (!fridgeId) {
+          console.warn('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
+          return;
+        }
 
         const response = await axios.post(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/post/create`, postData,
 
@@ -240,12 +246,21 @@ export default {
     viewPost(post) {
       console.log('=== viewPost 메서드 호출 ===');
       console.log('클릭된 게시글:', post);
-      console.log('현재 fridgeId:', this.$route.params.fridgeId);
+      const fridgeId = this.$store.getters.getCurrentFridgeId;
+      console.log('현재 fridgeId:', fridgeId);
       console.log('게시글 ID:', post.id);
-      console.log('이동할 URL:', `/fridge/${this.$route.params.fridgeId}/post/${post.id}`);
+      
+      if (!fridgeId) {
+        console.error('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
+        alert('냉장고 정보를 찾을 수 없습니다.');
+        return;
+      }
+      
+      const targetUrl = `/fridge/post/${post.id}`;
+      console.log('이동할 URL:', targetUrl);
       
       try {
-        this.$router.push(`/fridge/${this.$route.params.fridgeId}/post/${post.id}`);
+        this.$router.push(targetUrl);
         console.log('라우터 이동 성공');
       } catch (error) {
         console.error('라우터 이동 실패:', error);

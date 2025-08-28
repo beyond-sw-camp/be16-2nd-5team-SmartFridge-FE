@@ -3,7 +3,7 @@ import ChatPage from "@/views/ChatPage.vue";
 
 export const ChatRouter = [
   {
-    path:'/chatpage/:fridgeId',
+    path:'/chatpage',
     name: 'ChatPage',
     component: ChatPage,
   },

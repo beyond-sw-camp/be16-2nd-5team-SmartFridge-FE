@@ -44,15 +44,25 @@
 <script setup>
 import axios from 'axios';
 import { ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
 
-const route = useRoute();
+// Props 정의
+const props = defineProps({
+  fridgeId: {
+    type: String,
+    required: true
+  }
+});
+
 const foodStats = ref({});
 
 const fetchFoodStats = async () => {
   try {
-    const fridgeId = route.params.fridgeId;
-    const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/food/stats`);
+    if (!props.fridgeId) {
+      console.warn('Props에서 냉장고 ID를 찾을 수 없습니다.');
+      return;
+    }
+    
+    const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/fridge/${props.fridgeId}/food/stats`);
     foodStats.value = response.data.result;
   } catch (error) {
     console.error("식품통계를 불러오는데 실패했습니다:", error);

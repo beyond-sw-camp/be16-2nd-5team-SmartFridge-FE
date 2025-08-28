@@ -250,6 +250,7 @@
 <script>
 import axios from 'axios';
 import FoodFormModal from '../components/Food/FoodFormModal.vue';
+import { getFridgeId } from '@/utils/commonDataHandler';
 
 export default {
   components: {
@@ -313,8 +314,12 @@ export default {
     async fetchFoodList() {
       try {
         this.isLoading = true;
-        const fridgeId = this.$route.params.fridgeId;
-        if (!fridgeId) return;
+        const fridgeId = this.$store.getters.getCurrentFridgeId;
+        if (!fridgeId) {
+          console.warn('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
+          this.$router.push('/fridge/list');
+          return;
+        }
 
         let url = `${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/food/list?isShared=${this.isSharedView}&page=${this.currentPage - 1}&size=${this.pageSize}`;
         
@@ -362,8 +367,11 @@ export default {
     },
     async handleSave(foodData) {
       try {
-        const fridgeId = this.$route.params.fridgeId;
-        if (!fridgeId) { console.error('냉장고 ID가 없습니다.'); return; }
+        const fridgeId = this.$store.getters.getCurrentFridgeId;
+        if (!fridgeId) { 
+          console.error('Vuex store에서 냉장고 ID를 찾을 수 없습니다.'); 
+          return; 
+        }
         let response;
         if (foodData.id) {
           response = await axios.put(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/food/update/${foodData.id}`, foodData);
@@ -385,8 +393,11 @@ export default {
     },
     async confirmDelete() {
       try {
-        const fridgeId = this.$route.params.fridgeId;
-        if (!fridgeId) { console.error('냉장고 ID가 없습니다.'); return; }
+        const fridgeId = getFridgeId();
+        if (!fridgeId) { 
+          console.error('Vuex store에서 냉장고 ID를 찾을 수 없습니다.'); 
+          return; 
+        }
         await axios.delete(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/food/delete/${this.selectedFood.id}`);
         this.deleteDialog = false;
         this.selectedFood = {};

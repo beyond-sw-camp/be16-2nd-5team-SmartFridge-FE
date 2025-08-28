@@ -7,7 +7,7 @@ import MainDashboard from "@/views/MainDashboard.vue";
 import LoginPage from "@/views/LoginPage.vue";
 import MyPage from "@/views/MyPage.vue";
 import { InquiryRouter } from "./InquiryRouter";
-import { FoodRouter } from "./FoodRouter";
+import { FridgeRouter } from "./FridgeRouter";
 import { CommunityRouter } from "./CommunityRouter";
 
 const routes = [
@@ -31,7 +31,7 @@ const routes = [
   ...ChatRouter,
   ...NotificationRouter,
   ...InquiryRouter,
-  ...FoodRouter,
+  ...FridgeRouter,
   ...CommunityRouter,
   ...AdminRouter
 ]

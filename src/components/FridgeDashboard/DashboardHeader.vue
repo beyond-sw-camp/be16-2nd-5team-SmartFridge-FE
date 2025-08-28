@@ -117,23 +117,18 @@
 <script setup>
 import { onMounted, computed, ref } from 'vue';
 import { useStore } from 'vuex';
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter } from 'vue-router';
 import axios from 'axios';
 
-const route = useRoute();
-const fridge = ref({});
-
 // Props 정의
-defineProps({
-  fridge: {
-    type: Object,
-    default: () => ({
-      fridgeName: '냉장고',
-      type: 'PERSONAL',
-      description: '냉장고 설명'
-    })
+const props = defineProps({
+  fridgeId: {
+    type: String,
+    required: true
   }
 });
+
+const fridge = ref({});
 
 const store = useStore();
 const router = useRouter();
@@ -141,29 +136,27 @@ const router = useRouter();
 // 반응형 변수들
 const showNotificationModal = ref(false);
 
-// Vuex store에서 상태 가져오기
-const fridgeId = computed(() => localStorage.getItem('fridgeId') || '1');
+// Props로 받은 fridgeId 사용
 const notificationCount = computed(() => {
-  const count = store.getters['notification/getFridgeNotificationCount'](fridgeId.value);
-  console.log(`DashboardHeader - 냉장고 ${fridgeId.value} 알림 카운트:`, count);
+  const count = store.getters['notification/getFridgeNotificationCount'](props.fridgeId);
+  console.log(`DashboardHeader - 냉장고 ${props.fridgeId} 알림 카운트:`, count);
   return count;
 });
 const recentNotifications = computed(() => {
-  const notifications = store.getters['notification/getFridgeNotifications'](fridgeId.value);
-  console.log(`DashboardHeader - 냉장고 ${fridgeId.value} 알림 목록:`, notifications);
+  const notifications = store.getters['notification/getFridgeNotifications'](props.fridgeId);
+  console.log(`DashboardHeader - 냉장고 ${props.fridgeId} 알림 목록:`, notifications);
   return notifications;
 });
 
-// 냉장고 정보 가져오기 (route.params.fridgeId 사용)
+// 냉장고 정보 가져오기 (props로 받은 fridgeId 사용)
 const fetchFridgeInfo = async () => {
   try {
-    const currentFridgeId = route.params.fridgeId;
-    if (!currentFridgeId) {
-      console.warn('URL에서 냉장고 ID를 찾을 수 없습니다.');
+    if (!props.fridgeId) {
+      console.warn('Props에서 냉장고 ID를 찾을 수 없습니다.');
       return;
     }
     
-    const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/fridge/${currentFridgeId}/detail`);
+    const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/fridge/${props.fridgeId}/detail`);
     if (response.data.result) {
       fridge.value = response.data.result;
       console.log('냉장고 정보 로딩 완료:', fridge.value);
@@ -212,7 +205,7 @@ const handleNotificationClick = (notification) => {
   // 알림 클릭 시 읽음 처리
   if (!notification.isRead) {
     store.commit('notification/markFridgeNotificationAsRead', {
-      fridgeId: fridgeId.value,
+      fridgeId: props.fridgeId,
       notificationId: notification.id
     });
   }

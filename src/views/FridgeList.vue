@@ -400,9 +400,10 @@ export default {
       }
     },
     enterFridge(fridgeId) {
-      // URL에 냉장고 ID 포함하여 이동
-      this.$router.push(`/fridge/${fridgeId}/dashboard/`);
-      // 들어가기 누를시 바로 냉장고 화면이 아니라 새로고침 되면서 들어가기
+      // Vuex store에 냉장고 ID 저장
+      this.$store.commit('setCurrentFridgeId', fridgeId);
+      // 새로운 경로로 이동
+      this.$router.push('/fridge/dashboard');
     },
     openCreateModal() {
       this.selectedFridge = { fridgeName: '', description: '' };

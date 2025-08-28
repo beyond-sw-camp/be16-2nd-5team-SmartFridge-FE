@@ -9,12 +9,7 @@ const store = createStore({
     mutations: {
         setCurrentFridgeId(state, id) {
             state.currentFridgeId = id;
-            // localStorage에 저장
-            if (id) {
-                localStorage.setItem('currentFridgeId', id);
-            } else {
-                localStorage.removeItem('currentFridgeId');
-            }
+            localStorage.setItem('currentFridgeId', id);
         },
         clearCurrentFridgeId(state) {
             state.currentFridgeId = null;

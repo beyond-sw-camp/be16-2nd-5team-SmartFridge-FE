@@ -106,10 +106,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
-import { useRoute } from 'vue-router';
 
 const store = useStore();
-const route = useRoute();
 const logoUrl = new URL('../../assets/images/SFlogo/smartFridge_logo.png', import.meta.url).href;
 
 const selectedItem = ref(['dashboard']);
@@ -159,8 +157,6 @@ onMounted(async () => {
 });
 
 const menuItems = computed(() => {
-  const fridgeId = route.params.fridgeId;
-  
   // 디버깅: inquiryBadgeCount 계산 확인
   const inquiryBadgeCount = store.getters['notification/inquiryBadgeCount'];
   const chatBadgeCount = store.getters['notification/chatBadgeCount'];
@@ -171,18 +167,18 @@ const menuItems = computed(() => {
   return [
     { 
       title: '대시보드', icon: 'mdi-view-dashboard-outline', value: 'dashboard', color: 'blue-darken-1', 
-      to: fridgeId ? `/fridge/${fridgeId}/dashboard` : "/#"
+      to: "/fridge/dashboard"
     },
-    { title: '식품목록', icon: 'mdi-food-fork-drink', value: 'sharedfoodlist', color: 'green-darken-2', to: fridgeId ? `/fridge/${fridgeId}/food/shared` : "/#", badgeCount: 0 },
+    { title: '식품목록', icon: 'mdi-food-fork-drink', value: 'sharedfoodlist', color: 'green-darken-2', to: "/fridge/food/shared", badgeCount: 0 },
     
     { title: '알림목록', icon: 'mdi-bell-outline', value: 'notifications', color: 'orange-darken-2', to: '/notification/list'},
-    { title: '커뮤니티', icon: 'mdi-account-group-outline', value: 'community', color: 'purple-darken-1', to: fridgeId ? `/fridge/${fridgeId}/community` : "/#"  },
+    { title: '커뮤니티', icon: 'mdi-account-group-outline', value: 'community', color: 'purple-darken-1', to: "/fridge/community" },
     { 
-      title: '채팅', icon: 'mdi-chat-outline', value: 'chat', color: 'teal-darken-1', to: `/chatpage/${fridgeId}`,  
+      title: '채팅', icon: 'mdi-chat-outline', value: 'chat', color: 'teal-darken-1', to: "/chatpage",  
       badgeCount: chatBadgeCount // 채팅 관련 알림만
     },
     { title: '마이페이지', icon: 'mdi-account', value: 'mypage', color: 'indigo-darken-1', to: "/mypage" },
-    { title: '유저관리', icon: 'mdi-account-cog-outline', value: 'usermanagement', color: 'red-darken-2', to: `/fridge/${fridgeId}/member/list` },
+    { title: '유저관리', icon: 'mdi-account-cog-outline', value: 'usermanagement', color: 'red-darken-2', to: "/fridge/member/list" },
     { 
       title: '문의하기', icon: 'mdi-email-outline', value: 'inquiry', color: 'cyan-darken-1', 
       to: "/inquiry", 

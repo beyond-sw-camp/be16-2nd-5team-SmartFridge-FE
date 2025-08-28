@@ -1,15 +1,34 @@
 <template>
   <div class="fridge-dashboard">
-    <DashboardHeader />
-    <DashboardStats />
-    <FoodPreviewTable />
+    <DashboardHeader :fridgeId="currentFridgeId" />
+    <DashboardStats :fridgeId="currentFridgeId" />
+    <FoodPreviewTable :fridgeId="currentFridgeId" />
   </div>
 </template>
 
 <script setup>
+import { computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
 import DashboardHeader from '@/components/FridgeDashboard/DashboardHeader.vue'
 import DashboardStats from '@/components/FridgeDashboard/DashboardStats.vue'
 import FoodPreviewTable from '@/components/FridgeDashboard/FoodPreviewTable.vue'
+
+// Vuex store 사용
+const store = useStore()
+
+// 현재 선택된 냉장고 ID를 Vuex store에서 가져오기
+const currentFridgeId = computed(() => store.getters.getCurrentFridgeId)
+
+// 컴포넌트 마운트 시 냉장고 ID 확인
+onMounted(() => {
+  console.log('현재 선택된 냉장고 ID:', currentFridgeId.value)
+  
+  // 냉장고 ID가 없으면 처리
+  if (!currentFridgeId.value) {
+    console.warn('선택된 냉장고가 없습니다.')
+    // 필요시 다른 페이지로 리다이렉트하거나 처리
+  }
+})
 </script>
 
 <style scoped>
