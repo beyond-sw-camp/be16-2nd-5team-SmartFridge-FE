@@ -4,6 +4,6 @@ export function getErrorMessage(error){
 export function getResultData(response){
   return response.data.result;
 }
-export function getFridgeId(){
-  return this.$store.getters.getCurrentFridgeId;
+export function getFridgeId(store) {
+  return store.getters.getCurrentFridgeId;
 }

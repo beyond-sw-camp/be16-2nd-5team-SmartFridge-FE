@@ -242,10 +242,10 @@ export default {
           state.fridgeNotifications[numericFridgeId] = [];
         }
    
-        // 냉장고별 알림 리스트에 추가 (최대 10개)
+        // 냉장고별 알림 리스트에 추가 (최대 5개)
         state.fridgeNotifications[numericFridgeId].unshift(notification);
-        if (state.fridgeNotifications[numericFridgeId].length > 10) {
-          state.fridgeNotifications[numericFridgeId] = state.fridgeNotifications[numericFridgeId].slice(0, 10);
+        if (state.fridgeNotifications[numericFridgeId].length > 5) {
+          state.fridgeNotifications[numericFridgeId] = state.fridgeNotifications[numericFridgeId].slice(0, 5);
         }
    
         // 읽지 않은 알림 카운트 증가
@@ -253,6 +253,13 @@ export default {
           state.fridgeNotificationCounts[numericFridgeId] = 0;
         }
         state.fridgeNotificationCounts[numericFridgeId]++;
+        
+        // 실시간 알림 이벤트 발생 (DashboardHeader에서 수신)
+        const realtimeEvent = new CustomEvent('realtime-notification', {
+          detail: notification
+        });
+        window.dispatchEvent(realtimeEvent);
+        console.log('실시간 알림 이벤트 발생:', notification);
       }
     },
     clearNotifications(state) {

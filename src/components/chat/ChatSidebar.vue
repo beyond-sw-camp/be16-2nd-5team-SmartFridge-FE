@@ -181,8 +181,7 @@
 import { computed, onMounted, ref } from 'vue';
 import RoomInfoModal from './RoomInfoModal.vue';
 import axios from 'axios';
-import { useRoute } from 'vue-router';
-import { getErrorMessage, getResultData } from '@/utils/commonDataHandler';
+import { getErrorMessage, getFridgeId, getResultData } from '@/utils/commonDataHandler';
 import CreateRoomModal from './CreateRoomModal.vue';
 import { useStore } from 'vuex';
 
@@ -206,8 +205,7 @@ const managerRoom = ref(null);    // 첫 번째 채팅방
 const myPurchaseRooms = ref([]);     // 나머지 모든 채팅방
 const purchaseRooms = ref([]);     // 공동구매 채팅방
 const isLoading = ref(true); // 1. 로딩 상태를 관리할 ref 추가 (초기값 true)
-const route = useRoute();
-const fridgeId = ref(route.params.fridgeId);
+const fridgeId = computed(() => getFridgeId(store));
 
 onMounted(async () => {
   try {

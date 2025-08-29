@@ -95,27 +95,28 @@
         
         <v-divider></v-divider>
         
-        <v-card-actions class="modal-actions">
-          <v-spacer></v-spacer>
-          <v-btn 
-            color="primary" 
-            variant="elevated"
-            size="small"
-            @click="goToNotificationList"
-            :disabled="recentNotifications.length === 0"
-            class="view-all-btn"
-          >
-            <v-icon size="16" class="mr-1">mdi-format-list-bulleted</v-icon>
-            전체 보기
-          </v-btn>
-        </v-card-actions>
+                 <v-card-actions class="modal-actions">
+           <v-spacer></v-spacer>
+           
+           <v-btn 
+             color="primary" 
+             variant="elevated"
+             size="small"
+             @click="goToNotificationList"
+             :disabled="recentNotifications.length === 0"
+             class="view-all-btn"
+           >
+             <v-icon size="16" class="mr-1">mdi-format-list-bulleted</v-icon>
+             전체 보기
+           </v-btn>
+         </v-card-actions>
       </v-card>
     </v-dialog>
   </div>
 </template>
 
 <script setup>
-import { onMounted, computed, ref } from 'vue';
+import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
@@ -136,40 +137,141 @@ const router = useRouter();
 // 반응형 변수들
 const showNotificationModal = ref(false);
 
-// Props로 받은 fridgeId 사용
+// 알림 관련 상태
+const initialNotifications = ref([]);
+const realtimeNotifications = ref([]);
+
+// 실시간 알림 이벤트 핸들러 (onUnmounted에서 참조하기 위해 상단에 정의)
+const handleRealtimeNotificationEvent = (event) => {
+  const notification = event.detail;
+  
+  // fridgeId 비교 (문자열과 숫자 타입 모두 고려)
+  const eventFridgeId = String(notification.fridgeId);
+  const currentFridgeId = String(props.fridgeId);
+    
+  if (eventFridgeId === currentFridgeId) {
+    handleRealtimeNotification(notification);
+  }
+};
+
+// Props로 받은 fridgeId 사용하여 알림 개수 계산
 const notificationCount = computed(() => {
-  const count = store.getters['notification/getFridgeNotificationCount'](props.fridgeId);
-  console.log(`DashboardHeader - 냉장고 ${props.fridgeId} 알림 카운트:`, count);
-  return count;
+  return initialNotifications.value.length + realtimeNotifications.value.length;
 });
+
+// 최근 알림 목록 (초기값 + 실시간, 최대 5개)
 const recentNotifications = computed(() => {
-  const notifications = store.getters['notification/getFridgeNotifications'](props.fridgeId);
-  console.log(`DashboardHeader - 냉장고 ${props.fridgeId} 알림 목록:`, notifications);
-  return notifications;
+  const allNotifications = [...initialNotifications.value, ...realtimeNotifications.value];
+  
+  // 데이터 구조 통일: createdAt과 timestamp를 모두 사용
+  const normalizedNotifications = allNotifications.map(notification => ({
+    ...notification,
+    // createdAt이 없으면 timestamp 사용, 둘 다 없으면 현재 시간 사용
+    normalizedTime: notification.createdAt || notification.timestamp || new Date().toISOString()
+  }));
+  
+  // 최신순으로 정렬하고 최대 5개만 반환
+  const sortedNotifications = normalizedNotifications
+    .sort((a, b) => new Date(b.normalizedTime) - new Date(a.normalizedTime))
+    .slice(0, 5);
+  
+  return sortedNotifications;
 });
+
+// 초기 읽지 않은 알림 가져오기 (최근 5개)
+const fetchInitialNotifications = async () => {
+  try {
+    if (!props.fridgeId) {
+      return;
+    }
+    
+    const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/fridge/${props.fridgeId}/notification/badgeNotification`);
+    
+    if (response.data.result) {
+      // content가 배열인지 확인하고 안전하게 설정
+      if (Array.isArray(response.data.result.content)) {
+        initialNotifications.value = response.data.result.content;
+      } else if (Array.isArray(response.data.result)) {
+        // result 자체가 배열인 경우
+        initialNotifications.value = response.data.result;
+      } else {
+        // 다른 구조인 경우 빈 배열로 설정
+        initialNotifications.value = [];
+      }
+    } else {
+      initialNotifications.value = [];
+    }
+  } catch (error) {
+    console.error('초기 알림 로딩 실패:', error);
+    initialNotifications.value = [];
+  }
+};
 
 // 냉장고 정보 가져오기 (props로 받은 fridgeId 사용)
 const fetchFridgeInfo = async () => {
   try {
     if (!props.fridgeId) {
-      console.warn('Props에서 냉장고 ID를 찾을 수 없습니다.');
       return;
     }
     
     const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/fridge/${props.fridgeId}/detail`);
     if (response.data.result) {
       fridge.value = response.data.result;
-      console.log('냉장고 정보 로딩 완료:', fridge.value);
     }
   } catch (error) {
     console.error('냉장고 정보 로딩 실패:', error);
   }
 };
 
+// 실시간 알림 처리 함수
+const handleRealtimeNotification = (notification) => {
+  
+  // 실시간 알림 데이터 구조 통일
+  const normalizedNotification = {
+    ...notification,
+    // timestamp가 없으면 createdAt 사용, 둘 다 없으면 현재 시간 사용
+    timestamp: notification.timestamp || notification.createdAt || new Date().toISOString(),
+    // createdAt도 추가하여 일관성 유지
+    createdAt: notification.createdAt || notification.timestamp || new Date().toISOString()
+  };
+  
+  
+  // 새로운 실시간 알림 추가
+  realtimeNotifications.value.unshift(normalizedNotification);
+  
+  // 최대 5개 유지 (초기값과 실시간 알림 합쳐서)
+  const totalCount = initialNotifications.value.length + realtimeNotifications.value.length;
+  
+  if (totalCount > 5) {
+    // 가장 오래된 알림 제거 (초기값에서 제거)
+    if (initialNotifications.value.length > 0) {
+      initialNotifications.value.pop();
+    }
+  }
+  
+};
+
 onMounted(() => {
   // 전역 SSE 연결이 이미 App.vue에서 관리되므로 여기서는 별도 연결하지 않음
-  console.log('DashboardHeader 마운트됨 - 전역 SSE 연결 사용');
+  
+  if (!props.fridgeId) {
+    return;
+  }
+  
   fetchFridgeInfo();
+  fetchInitialNotifications();
+  
+  // 실시간 알림 이벤트 리스너 등록
+  window.addEventListener('realtime-notification', handleRealtimeNotificationEvent);
+  
+  // SSE 연결 상태 확인
+  
+  
+});
+
+// 컴포넌트 언마운트 시 이벤트 리스너 정리
+onUnmounted(() => {
+  window.removeEventListener('realtime-notification', handleRealtimeNotificationEvent);
 });
 
 // 전역 SSE 연결이 App.vue에서 관리되므로 별도 연결 코드 제거
@@ -199,11 +301,22 @@ const getTypeText = (type) => {
   }
 };
 
-// 알림 관련 함수들
-
 const handleNotificationClick = (notification) => {
   // 알림 클릭 시 읽음 처리
   if (!notification.isRead) {
+    // 초기 알림에서 제거
+    const initialIndex = initialNotifications.value.findIndex(n => n.id === notification.id);
+    if (initialIndex !== -1) {
+      initialNotifications.value.splice(initialIndex, 1);
+    }
+    
+    // 실시간 알림에서 제거
+    const realtimeIndex = realtimeNotifications.value.findIndex(n => n.id === notification.id);
+    if (realtimeIndex !== -1) {
+      realtimeNotifications.value.splice(realtimeIndex, 1);
+    }
+    
+    // Vuex store에도 반영
     store.commit('notification/markFridgeNotificationAsRead', {
       fridgeId: props.fridgeId,
       notificationId: notification.id
@@ -212,8 +325,7 @@ const handleNotificationClick = (notification) => {
 };
 
 const goToNotificationList = () => {
-  // 알림 목록 페이지로 이동
-  router.push('/notification/list');
+  router.push(`/notification/list`);
 };
 
 const formatTimeAgo = (timestamp) => {
