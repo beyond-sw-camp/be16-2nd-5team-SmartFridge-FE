@@ -57,15 +57,15 @@
                 <div style="color: red; font-size: medium; margin-right: 15px; back">
                   {{ room.unReadCount }}
                 </div>
-                <div class="flex-grow-1">
+                <div class="flex-grow-1 text-truncate">
                   <v-list-item-title class="font-weight-bold text-truncate d-flex align-center">
-                    <span>{{ room.roomName }}</span>
+                    <div class="text-truncate">{{ room.roomName }}</div>
                     <v-icon
                         v-if="room.isCreator"
                         icon="mdi-crown"
                         size="x-small"
                         color="yellow"
-                        class="mr-2 flex-shrink-0"
+                        class="mr-2 flex-shrink-0 "
                       ></v-icon>
                   </v-list-item-title>
                   <v-list-item-subtitle v-if="!room.isCreator" class="text-truncate">{{ room.userName }}</v-list-item-subtitle>
@@ -75,6 +75,7 @@
                   variant="tonal"
                   size="small"
                   label
+                  class="flex-shrink-0"
                 >
                   {{ room.currentParticipants }}/{{ room.maxParticipants }}명
                 </v-chip>
