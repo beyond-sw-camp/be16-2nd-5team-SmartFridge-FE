@@ -79,12 +79,25 @@
     <FridgeFormModal v-model="isFormModalOpen" :editing-fridge="selectedFridge" @save="handleSaveFridge" />
     <FridgeInviteModal v-model="isJoinModalOpen" @join="handleJoinFridge" />
 
-    <v-snackbar v-model="snackbar.show" :timeout="2500" :color="snackbar.color">
-      {{ snackbar.message }}
-      <template v-slot:actions>
-        <v-btn color="white" variant="text" @click="snackbar.show = false">닫기</v-btn>
-      </template>
-    </v-snackbar>
+    <!-- 삭제 확인 다이얼로그 -->
+    <DeleteConfirmDialog
+      v-model="showDeleteDialog"
+      title="냉장고 삭제 확인"
+      :message="`'${selectedFridge?.fridgeName || ''}' 냉장고를 정말 삭제하시겠습니까? 모든 멤버와 데이터가 영구적으로 삭제됩니다.`"
+      @confirm="deleteFridge(selectedFridge?.fridgeId)"
+      @cancel="showDeleteDialog = false"
+    />
+
+    <!-- 나가기 확인 다이얼로그 -->
+    <DeleteConfirmDialog
+      v-model="showLeaveDialog"
+      title="냉장고 나가기 확인"
+      :message="`'${selectedFridge?.fridgeName || ''}' 냉장고에서 나가시겠습니까? 작성한 모든 데이터가 삭제됩니다.`"
+      @confirm="leaveFridge(selectedFridge?.fridgeId)"
+      @cancel="showLeaveDialog = false"
+    />
+
+    <CommonSnackbar ref="commonSnackbar" />
 
   </div>
 </template>
@@ -368,23 +381,25 @@
 import axios from 'axios';
 import FridgeFormModal from '@/components/Fridge/FridgeFormModal.vue';
 import FridgeInviteModal from '@/components/Fridge/FridgeInviteModal.vue';
+import CommonSnackbar from '@/components/common/CommonSnackbar.vue';
+import DeleteConfirmDialog from '@/components/common/DeleteConfirmDialog.vue';
 
 export default {
   components: {
     FridgeFormModal,
     FridgeInviteModal,
+    CommonSnackbar,
+    DeleteConfirmDialog
   },
   data() {
     return {
       fridgeList: [],
       isFormModalOpen: false,
       isJoinModalOpen: false,
+      showDeleteDialog: false,
+      showLeaveDialog: false,
       selectedFridge: {},
-      snackbar: {
-        show: false,
-        message: '',
-        color: 'success',
-      },
+
     }
   },
   created() {
@@ -446,15 +461,16 @@ export default {
       }
     },
     openLeaveConfirmDialog(fridge) {
-      if (confirm(`'${fridge.fridgeName}' 냉장고에서 나가시겠습니까? 작성한 모든 데이터가 삭제됩니다.`)) {
-        this.leaveFridge(fridge.fridgeId);
-      }
+      this.selectedFridge = fridge;
+      this.showLeaveDialog = true;
     },
 
     openDeleteConfirmDialog(fridge) {
-      if (confirm(`'${fridge.fridgeName}' 냉장고를 정말 삭제하시겠습니까? 모든 멤버와 데이터가 영구적으로 삭제됩니다.`)) {
-        this.deleteFridge(fridge.fridgeId);
-      }
+      console.log('openDeleteConfirmDialog 호출됨, fridge:', fridge);
+      this.selectedFridge = fridge;
+      this.showDeleteDialog = true;
+      console.log('selectedFridge 설정됨:', this.selectedFridge);
+      console.log('showDeleteDialog 설정됨:', this.showDeleteDialog);
     },
 
     async leaveFridge(fridgeId) {
@@ -488,9 +504,7 @@ export default {
       });
     },
     showSnackbar(message, color) {
-      this.snackbar.message = message;
-      this.snackbar.color = color;
-      this.snackbar.show = true;
+      this.$refs.commonSnackbar.showSnackbar(message, color);
     }
   }
 }

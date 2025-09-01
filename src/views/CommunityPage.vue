@@ -102,16 +102,22 @@
 
     <!-- 게시글 작성 모달 -->
     <PostFormModal v-model="isModalOpen" :board-type="activeBoard" @save="handleSave" />
+    
+    <!-- Snackbar 컴포넌트 추가 -->
+    <CommonSnackbar ref="commonSnackbar" />
   </div>
 </template>
 
 <script>
 import axios from 'axios';
+import { getFridgeId } from '@/utils/commonDataHandler';
 import PostFormModal from '../components/Community/PostFormModal.vue';
+import CommonSnackbar from '@/components/common/CommonSnackbar.vue';
 
 export default {
   components: {
-    PostFormModal
+    PostFormModal,
+    CommonSnackbar
   },
   data() {
     return {
@@ -145,6 +151,9 @@ export default {
     
     await this.fetchPostList();
     console.log('게시글 목록 로드 완료');
+    
+    // 게시글 삭제 완료 메시지 확인 및 표시
+    this.checkPostDeletedMessage();
   },
   methods: {
     async fetchCategories() {
@@ -177,7 +186,7 @@ export default {
     async fetchPostList() {
       try {
         this.isLoading = true;
-        const fridgeId = this.$store.getters.getCurrentFridgeId;
+        const fridgeId = getFridgeId(this.$store);
         if (!fridgeId) {
           console.warn('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
           return;
@@ -223,30 +232,29 @@ export default {
 
     async handleSave(postData) {
       try {
-        const fridgeId = this.$store.getters.getCurrentFridgeId;
+        const fridgeId = getFridgeId(this.$store);
         if (!fridgeId) {
           console.warn('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
           return;
         }
 
-        const response = await axios.post(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/post/create`, postData,
+        const response = await axios.post(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/post/create`, postData);
 
-        );
         console.log('게시글 등록 성공:', response.data);
 
         await this.fetchPostList();
         this.isModalOpen = false;
-        alert('게시글이 등록되었습니다.');
+        this.showSnackbar('게시글이 등록되었습니다.', 'success');
       } catch (error) {
         console.error('게시글 등록 실패:', error);
-        alert('게시글 등록에 실패했습니다: ' + (error.response?.data?.message || error.message));
+        this.showSnackbar('게시글 등록에 실패했습니다: ' + (error.response?.data?.message || error.message), 'error');
       }
     },
 
     viewPost(post) {
       console.log('=== viewPost 메서드 호출 ===');
       console.log('클릭된 게시글:', post);
-      const fridgeId = this.$store.getters.getCurrentFridgeId;
+      const fridgeId = getFridgeId(this.$store);
       console.log('현재 fridgeId:', fridgeId);
       console.log('게시글 ID:', post.id);
       
@@ -302,6 +310,19 @@ export default {
 
     resetPagination() {
       this.currentPage = 1;
+    },
+
+    showSnackbar(message, color) {
+      this.$refs.commonSnackbar.showSnackbar(message, color);
+    },
+    
+    // 게시글 삭제 완료 메시지 확인 및 표시
+    checkPostDeletedMessage() {
+      const postDeleted = localStorage.getItem('postDeleted');
+      if (postDeleted === 'true') {
+        this.showSnackbar('게시글이 삭제되었습니다.', 'error');
+        localStorage.removeItem('postDeleted'); // 메시지 표시 후 제거
+      }
     }
   }
 }

@@ -86,6 +86,9 @@
       :editing-food="selectedFood"
       @save="handleFoodSave" 
     />
+
+    <!-- CommonSnackbar 컴포넌트 추가 -->
+    <CommonSnackbar ref="snackbar" />
   </div>
 </template>
 
@@ -94,6 +97,7 @@ import axios from 'axios';
 import { ref, onMounted } from 'vue';
 import router from '@/router';
 import FoodFormModal from '@/components/Food/FoodFormModal.vue';
+import CommonSnackbar from '@/components/common/CommonSnackbar.vue';
 
 // Props 정의
 const props = defineProps({
@@ -109,6 +113,9 @@ const recentSharedFoods = ref([])
 // 모달 관련 상태
 const isFoodModalOpen = ref(false);
 const selectedFood = ref({});
+
+// snackbar ref
+const snackbar = ref(null);
 
 // 유통기한을 깔끔하게 포맷팅하는 함수
 const formatDate = (dateString) => {
@@ -152,6 +159,11 @@ const handleFoodSave = async (foodData) => {
     // 성공 메시지
     console.log('식품이 성공적으로 등록되었습니다.');
     
+    // 성공 snackbar 표시
+    if (snackbar.value) {
+      snackbar.value.showSuccess('식품이 성공적으로 등록되었습니다.');
+    }
+    
     // 목록 새로고침
     await refreshFoodLists();
     
@@ -160,7 +172,10 @@ const handleFoodSave = async (foodData) => {
     
   } catch (error) {
     console.error('식품 등록에 실패했습니다:', error);
-    alert('식품 등록에 실패했습니다: ' + (error.response?.data?.message || error.message));
+    // alert 대신 snackbar 사용
+    if (error.response?.data?.message) {
+      console.error('API 에러 메시지:', error.response.data.message);
+    }
   }
 };
 
@@ -230,13 +245,13 @@ onMounted(() => {
 });
 
 const goToSharedFoodList = () => {
-  router.push(`/fridge/${props.fridgeId}/food/shared`);
+  router.push(`/fridge/food/shared`);
 }
 
 const goToNonsharedFoodList = () => {
   // 전체식품 페이지로 이동하면서 개인식품 모드로 설정
   router.push({
-    path: `/fridge/${props.fridgeId}/food/shared`,
+    path: `/fridge/food/shared`,
     query: { mode: 'nonshared' }
   });
 }

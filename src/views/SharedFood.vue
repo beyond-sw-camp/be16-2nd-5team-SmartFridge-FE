@@ -49,6 +49,9 @@
             <v-tab value="TEMP_ONLY" class="filter-tab">
               임시보관
             </v-tab>
+            <v-tab v-if="isManager" value="MY_FOODS" class="filter-tab">
+              내 식품목록
+            </v-tab>
           </v-tabs>
           
           <!-- 식품 등록 버튼 -->
@@ -124,7 +127,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="food in foodList" :key="food.id" class="food-row">
+            <tr v-for="food in foodList" :key="food.id" class="food-row" @click="openDetailModal(food)">
               <td class="food-name text-left">{{ food.name || '이름 없음' }}</td>
               <td class="quantity-cell text-center">{{ food.quantity || 0 }}</td>
               <td class="member-cell text-left">{{ food.registeredName || '알 수 없음' }}</td>
@@ -150,7 +153,7 @@
                   {{ food.storageType || '미설정' }}
                 </v-chip>
               </td>
-              <td class="actions-cell text-center">
+              <td class="actions-cell text-center" @click.stop>
                 <v-btn
                   color="primary"
                   size="small"
@@ -227,40 +230,43 @@
     <FoodFormModal 
       v-model="isModalOpen" 
       :editing-food="selectedFood"
+      :read-only="isReadOnly"
       @save="handleSave"
     />
 
     <!-- 삭제 확인 다이얼로그 -->
-    <v-dialog v-model="deleteDialog" max-width="400">
-      <v-card>
-        <v-card-title>식품 삭제 확인</v-card-title>
-        <v-card-text>
-          정말로 "{{ selectedFood.name }}" 식품을 삭제하시겠습니까?
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn @click="deleteDialog = false">취소</v-btn>
-          <v-btn color="error" @click="confirmDelete">삭제</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <DeleteConfirmDialog
+      v-model="deleteDialog"
+      title="식품 삭제 확인"
+      :message="`정말로 '${selectedFood.name || ''}' 식품을 삭제하시겠습니까?`"
+      @confirm="confirmDelete"
+      @cancel="deleteDialog = false"
+    />
+
+    <!-- CommonSnackbar 컴포넌트 추가 -->
+    <CommonSnackbar ref="snackbar" />
   </div>
 </template>
 
 <script>
 import axios from 'axios';
 import FoodFormModal from '../components/Food/FoodFormModal.vue';
+import CommonSnackbar from '../components/common/CommonSnackbar.vue';
+import DeleteConfirmDialog from '../components/common/DeleteConfirmDialog.vue';
 import { getFridgeId } from '@/utils/commonDataHandler';
 
 export default {
   components: {
-    FoodFormModal
+    FoodFormModal,
+    CommonSnackbar,
+    DeleteConfirmDialog
   },
   data() {
     return {
       foodList: [],
       isModalOpen: false,
       selectedFood: {},
+      isReadOnly: false,
       deleteDialog: false,
       isLoading: false,
       activeTab: 'ALL', // 필터 탭 상태
@@ -278,6 +284,7 @@ export default {
         { title: '100개', value: 100 },
       ],
       isSharedView: true, // 공유/개인 토글 상태
+      fridgeInfo: {}, // 냉장고 정보
     }
   },
   async created() {
@@ -286,8 +293,16 @@ export default {
       this.isSharedView = false;
     }
     
+    // 냉장고 정보 가져오기
+    await this.fetchFridgeInfo();
+    
     await this.fetchEnums();
     await this.fetchFoodList();
+  },
+  computed: {
+    isManager() {
+      return this.fridgeInfo.type === 'MANAGER';
+    }
   },
   watch: {
     activeTab() {
@@ -314,7 +329,7 @@ export default {
     async fetchFoodList() {
       try {
         this.isLoading = true;
-        const fridgeId = this.$store.getters.getCurrentFridgeId;
+        const fridgeId = getFridgeId(this.$store);
         if (!fridgeId) {
           console.warn('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
           this.$router.push('/fridge/list');
@@ -323,10 +338,9 @@ export default {
 
         let url = `${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/food/list?isShared=${this.isSharedView}&page=${this.currentPage - 1}&size=${this.pageSize}`;
         
-        // 백엔드 API의 filterType 파라미터 사용
-        if (this.activeTab !== 'ALL') {
-          url += `&filterType=${this.activeTab}`;
-        }
+        // viewAll 파라미터 추가 (전체식품: true, 내 식품목록: false)
+        const viewAll = this.activeTab === 'MY_FOODS' ? false : true;
+        url += `&viewAll=${viewAll}`;
 
         // 카테고리 필터 추가
         if (this.selectedCategory !== 'ALL') {
@@ -359,15 +373,22 @@ export default {
         category: '',
         shareable: true
       };
+      this.isReadOnly = false;
       this.isModalOpen = true;
     },
     openEditModal(food) {
       this.selectedFood = { ...food };
+      this.isReadOnly = false;
+      this.isModalOpen = true;
+    },
+    openDetailModal(food) {
+      this.selectedFood = { ...food };
+      this.isReadOnly = true;
       this.isModalOpen = true;
     },
     async handleSave(foodData) {
       try {
-        const fridgeId = this.$store.getters.getCurrentFridgeId;
+        const fridgeId = getFridgeId(this.$store);
         if (!fridgeId) { 
           console.error('Vuex store에서 냉장고 ID를 찾을 수 없습니다.'); 
           return; 
@@ -376,15 +397,16 @@ export default {
         if (foodData.id) {
           response = await axios.put(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/food/update/${foodData.id}`, foodData);
           console.log('식품 수정 성공:', response.data);
+          this.$refs.snackbar.showSuccess('식품이 성공적으로 수정되었습니다.');
         } else {
           response = await axios.post(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/food/register`, foodData);
           console.log('식품 등록 성공:', response.data);
+          this.$refs.snackbar.showSuccess('식품이 성공적으로 등록되었습니다.');
         }
         await this.fetchFoodList();
-        alert(foodData.id ? '식품이 수정되었습니다.' : '식품이 등록되었습니다.');
       } catch (error) {
         console.error('식품 저장 실패:', error);
-        alert('식품 저장에 실패했습니다: ' + (error.response?.data?.message || error.message));
+        this.$refs.snackbar.showError('식품 저장에 실패했습니다: ' + (error.response?.data?.message || error.message));
       }
     },
     async deleteFood(food) {
@@ -393,7 +415,7 @@ export default {
     },
     async confirmDelete() {
       try {
-        const fridgeId = getFridgeId();
+        const fridgeId = getFridgeId(this.$store);
         if (!fridgeId) { 
           console.error('Vuex store에서 냉장고 ID를 찾을 수 없습니다.'); 
           return; 
@@ -402,10 +424,10 @@ export default {
         this.deleteDialog = false;
         this.selectedFood = {};
         await this.fetchFoodList();
-        alert('식품이 삭제되었습니다.');
+        this.showSnackbar('식품이 삭제되었습니다.', 'error');
       } catch (error) {
         console.error('식품 삭제 실패:', error);
-        alert('식품 삭제에 실패했습니다: ' + (error.response?.data?.message || error.message));
+        this.$refs.snackbar.showError('식품 삭제에 실패했습니다: ' + (error.response?.data?.message || error.message));
       }
     },
     formatDate(dateString) {
@@ -488,6 +510,29 @@ export default {
     // 페이징 초기화
     resetPagination() {
       this.currentPage = 1;
+    },
+    // 냉장고 정보 가져오기
+    async fetchFridgeInfo() {
+      try {
+        const fridgeId = getFridgeId(this.$store);
+        if (!fridgeId) {
+          console.warn('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
+          return;
+        }
+        
+        const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/detail`);
+        if (response.data.result) {
+          this.fridgeInfo = response.data.result;
+          console.log('냉장고 정보 로딩 완료:', this.fridgeInfo);
+        }
+      } catch (error) {
+        console.error('냉장고 정보 로딩 실패:', error);
+      }
+    },
+    
+    // Snackbar 메시지 표시
+    showSnackbar(message, color) {
+      this.$refs.snackbar.showSnackbar(message, color);
     }
   }
 }
@@ -723,8 +768,14 @@ export default {
   vertical-align: middle;
 }
 
+.food-row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
 .food-row:hover {
-  background-color: #fafafa;
+  background-color: #f0f8ff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .food-name {

@@ -8,8 +8,8 @@
             <v-icon size="32" color="primary">mdi-food-apple</v-icon>
           </div>
           <div class="header-text">
-            <h2 class="modal-title">{{ isEditMode ? '식품 수정' : '새로운 식품 등록' }}</h2>
-            <p class="modal-subtitle">{{ isEditMode ? '식품 정보를 수정해주세요' : '냉장고에 새로운 식품을 추가해주세요' }}</p>
+                      <h2 class="modal-title">{{ getModalTitle() }}</h2>
+          <p class="modal-subtitle">{{ getModalSubtitle() }}</p>
           </div>
         </div>
         <v-btn icon="mdi-close" variant="text" @click="closeModal" class="close-btn"></v-btn>
@@ -35,6 +35,7 @@
                   hide-details="auto"
                   class="custom-input"
                   :rules="[v => !!v || '식품명을 입력해주세요']"
+                  :disabled="readOnly"
                 ></v-text-field>
               </div>
             </v-col>
@@ -64,6 +65,7 @@
                      hide-details="auto"
                      class="quantity-field"
                      :rules="[v => v > 0 || '수량은 1개 이상이어야 합니다']"
+                     :disabled="readOnly"
                    ></v-text-field>
                    <v-btn 
                      icon="mdi-plus" 
@@ -92,6 +94,7 @@
                    class="custom-input"
                    item-title="name"
                    item-value="value"
+                   :disabled="readOnly"
                  ></v-select>
                </div>
              </v-col>
@@ -111,6 +114,7 @@
                    hide-details="auto"
                    class="custom-input"
                    placeholder="날짜를 선택하세요"
+                   :disabled="readOnly"
                  ></v-text-field>
                </div>
              </v-col>
@@ -129,6 +133,7 @@
                    hide-details="auto"
                    class="custom-input"
                    placeholder="시간을 선택하세요 (선택하지 않으면 23:59로 설정됩니다)"
+                   :disabled="readOnly"
                  ></v-text-field>
                </div>
              </v-col>
@@ -150,6 +155,7 @@
                    class="custom-input"
                    item-title="name"
                    item-value="value"
+                   :disabled="readOnly"
                  ></v-select>
                </div>
              </v-col>
@@ -169,6 +175,7 @@
                   density="comfortable"
                   hide-details="auto"
                   class="custom-input"
+                  :disabled="readOnly"
                 ></v-textarea>
               </div>
             </v-col>
@@ -182,6 +189,7 @@
                   color="primary"
                   hide-details="auto"
                   class="share-checkbox"
+                  :disabled="readOnly"
                 >
                   <template v-slot:label>
                     <div class="checkbox-label">
@@ -203,6 +211,7 @@
       <v-card-actions class="pa-6">
         <div class="action-buttons">
           <v-btn 
+            v-if="!readOnly"
             variant="outlined" 
             color="grey-darken-1" 
             @click="save(true)"
@@ -218,9 +227,10 @@
               @click="closeModal"
               class="action-btn cancel-btn"
             >
-              취소
+              {{ readOnly ? '닫기' : '취소' }}
             </v-btn>
             <v-btn 
+              v-if="!readOnly"
               color="primary" 
               @click="save(false)"
               class="action-btn save-btn"
@@ -234,17 +244,28 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <!-- CommonSnackbar 컴포넌트 추가 -->
+  <CommonSnackbar ref="snackbar" />
 </template>
 
 <script>
 import axios from 'axios';
+import CommonSnackbar from '../common/CommonSnackbar.vue';
 
 export default {
+  components: {
+    CommonSnackbar
+  },
   props: {
     modelValue: Boolean,
     editingFood: {
       type: Object,
       default: () => ({})
+    },
+    readOnly: {
+      type: Boolean,
+      default: false
     },
   },
   data() {
@@ -307,6 +328,18 @@ export default {
     }
   },
   methods: {
+    getModalTitle() {
+      if (this.readOnly) {
+        return '식품 상세 정보';
+      }
+      return this.isEditMode ? '식품 수정' : '새로운 식품 등록';
+    },
+    getModalSubtitle() {
+      if (this.readOnly) {
+        return '등록된 식품의 자세한 정보를 확인할 수 있습니다';
+      }
+      return this.isEditMode ? '식품 정보를 수정해주세요' : '냉장고에 새로운 식품을 추가해주세요';
+    },
     async fetchEnums() {
       try {
         const token = localStorage.getItem('accessToken');
@@ -317,6 +350,7 @@ export default {
         this.storageTypes = response.data.storageTypes;
       } catch (error) {
         console.error("카테고리 및 보관위치 목록을 불러오는 데 실패했습니다.", error);
+        this.$refs.snackbar.showError("카테고리 및 보관위치 목록을 불러오는 데 실패했습니다.");
       }
     },
     increaseQuantity() {
@@ -329,6 +363,7 @@ export default {
     },
     async save(isTemp) {
       if (!this.formData.name.trim()) {
+        this.$refs.snackbar.showWarning("식품명을 입력해주세요.");
         return;
       }
       
@@ -353,8 +388,20 @@ export default {
         
         delete saveData.expirationTime;
         
+        // 성공 메시지 표시
+        if (isTemp) {
+          this.$refs.snackbar.showInfo("식품이 임시로 등록되었습니다.");
+        } else if (this.isEditMode) {
+          this.$refs.snackbar.showSuccess("식품 정보가 성공적으로 수정되었습니다.");
+        } else {
+          this.$refs.snackbar.showSuccess("식품이 성공적으로 등록되었습니다.");
+        }
+        
         this.$emit('save', saveData);
         this.closeModal();
+      } catch (error) {
+        console.error("식품 저장 중 오류가 발생했습니다:", error);
+        this.$refs.snackbar.showError("식품 저장 중 오류가 발생했습니다. 다시 시도해주세요.");
       } finally {
         this.isLoading = false;
       }

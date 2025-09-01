@@ -147,14 +147,21 @@
         </v-btn>
       </v-card-actions>
     </v-card>
+    
+    <!-- Snackbar 컴포넌트 추가 -->
+    <CommonSnackbar ref="commonSnackbar" />
   </v-dialog>
 </template>
 
 <script>
 import axios from 'axios';
+import CommonSnackbar from '@/components/common/CommonSnackbar.vue';
 
 export default {
   name: 'PostFormModal',
+  components: {
+    CommonSnackbar
+  },
   props: {
     modelValue: {
       type: Boolean,
@@ -283,6 +290,7 @@ export default {
         }
       } catch (error) {
         console.error("커뮤니티 카테고리 목록을 불러오는 데 실패했습니다.", error);
+        this.showSnackbar('카테고리 목록을 불러오는 데 실패했습니다.', 'error');
         // API 호출 실패 시 기본값으로 설정
         this.boardTypeOptions = [
           { id: 1, category: '공지사항' },
@@ -530,6 +538,10 @@ export default {
       }
       
       return imageUrls;
+    },
+
+    showSnackbar(message, color) {
+      this.$refs.commonSnackbar.showSnackbar(message, color);
     }
   }
 }

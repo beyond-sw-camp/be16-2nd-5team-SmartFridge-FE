@@ -9,6 +9,7 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
+import { getFridgeId } from '@/utils/commonDataHandler'
 import DashboardHeader from '@/components/FridgeDashboard/DashboardHeader.vue'
 import DashboardStats from '@/components/FridgeDashboard/DashboardStats.vue'
 import FoodPreviewTable from '@/components/FridgeDashboard/FoodPreviewTable.vue'
@@ -17,7 +18,7 @@ import FoodPreviewTable from '@/components/FridgeDashboard/FoodPreviewTable.vue'
 const store = useStore()
 
 // 현재 선택된 냉장고 ID를 Vuex store에서 가져오기
-const currentFridgeId = computed(() => store.getters.getCurrentFridgeId)
+const currentFridgeId = computed(() => getFridgeId(store))
 
 // 컴포넌트 마운트 시 냉장고 ID 확인
 onMounted(() => {

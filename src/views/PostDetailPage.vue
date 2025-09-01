@@ -16,7 +16,7 @@
               <v-icon>mdi-pencil</v-icon>
               수정
             </v-btn>
-            <v-btn @click="deletePost" color="error" variant="outlined" class="delete-btn">
+            <v-btn @click="openDeleteDialog" color="error" variant="outlined" class="delete-btn">
               <v-icon>mdi-delete</v-icon>
               삭제
             </v-btn>
@@ -195,6 +195,18 @@
       @save="handlePostUpdate"
     />
 
+    <!-- 게시글 삭제 확인 다이얼로그 -->
+    <DeleteConfirmDialog
+      v-model="showDeleteDialog"
+      title="게시글 삭제 확인"
+      :message="`'${postDetail?.title || ''}' 게시글을 정말 삭제하시겠습니까?`"
+      @confirm="deletePost"
+      @cancel="showDeleteDialog = false"
+    />
+
+    <!-- Snackbar 컴포넌트 추가 -->
+    <CommonSnackbar ref="commonSnackbar" />
+
     <!-- 로딩 상태 -->
     <div v-if="isLoading" class="loading-overlay">
       <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
@@ -207,11 +219,16 @@
 import axios from 'axios';
 import { mapGetters } from 'vuex';
 import PostFormModal from '@/components/Community/PostFormModal.vue';
+import CommonSnackbar from '@/components/common/CommonSnackbar.vue';
+import DeleteConfirmDialog from '@/components/common/DeleteConfirmDialog.vue';
+import { getFridgeId } from '@/utils/commonDataHandler';
 
 export default {
   name: 'PostDetailPage',
   components: {
-    PostFormModal
+    PostFormModal,
+    CommonSnackbar,
+    DeleteConfirmDialog
   },
   data() {
     return {
@@ -230,6 +247,7 @@ export default {
       editingCommentContent: '',
       // 게시글 수정 관련
       showEditModal: false,
+      showDeleteDialog: false,
       editingPost: {}
     }
   },
@@ -277,8 +295,14 @@ export default {
     async fetchPostDetail() {
       try {
         this.isLoading = true;
-        const fridgeId = this.$route.params.fridgeId;
+        const fridgeId = getFridgeId(this.$store);
         const postId = this.$route.params.postId;
+        
+        if (!fridgeId) {
+          console.error('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
+          alert('냉장고 정보를 찾을 수 없습니다.');
+          return;
+        }
         
         const response = await axios.get(
           `${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/post/${postId}`,
@@ -301,8 +325,13 @@ export default {
     async fetchComments() {
       try {
         this.isLoadingComments = true;
-        const fridgeId = this.$route.params.fridgeId;
+        const fridgeId = getFridgeId(this.$store);
         const postId = this.$route.params.postId;
+        
+        if (!fridgeId) {
+          console.error('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
+          return;
+        }
         
         const response = await axios.get(
           `${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/post/${postId}/comment/list?page=${this.commentPage - 1}&size=${this.commentPageSize}`,
@@ -328,8 +357,14 @@ export default {
       if (!this.newComment.trim()) return;
       
       try {
-        const fridgeId = this.$route.params.fridgeId;
+        const fridgeId = getFridgeId(this.$store);
         const postId = this.$route.params.postId;
+        
+        if (!fridgeId) {
+          console.error('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
+          this.showSnackbar('냉장고 정보를 찾을 수 없습니다.', 'error');
+          return;
+        }
         
         const commentData = {
           content: this.newComment.trim()
@@ -351,11 +386,11 @@ export default {
         // 게시글 정보도 새로고침 (댓글 수 업데이트)
         await this.fetchPostDetail();
         
-        alert('댓글이 작성되었습니다.');
+        this.showSnackbar('댓글이 작성되었습니다.', 'success');
         
       } catch (error) {
         console.error('댓글 작성 실패:', error);
-        alert('댓글 작성에 실패했습니다: ' + (error.response?.data?.message || error.message));
+        this.showSnackbar('댓글 작성에 실패했습니다: ' + (error.response?.data?.message || error.message), 'error');
       }
     },
 
@@ -363,8 +398,14 @@ export default {
       if (!this.editingCommentContent.trim()) return;
       
       try {
-        const fridgeId = this.$route.params.fridgeId;
+        const fridgeId = getFridgeId(this.$store);
         const postId = this.$route.params.postId;
+        
+        if (!fridgeId) {
+          console.error('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
+          this.showSnackbar('냉장고 정보를 찾을 수 없습니다.', 'error');
+          return;
+        }
         
         const updateData = {
           content: this.editingCommentContent.trim()
@@ -385,20 +426,26 @@ export default {
         // 댓글 목록 새로고침
         await this.fetchComments();
         
-        alert('댓글이 수정되었습니다.');
+        this.showSnackbar('댓글이 수정되었습니다.', 'success');
         
       } catch (error) {
         console.error('댓글 수정 실패:', error);
-        alert('댓글 수정에 실패했습니다: ' + (error.response?.data?.message || error.message));
+        this.showSnackbar('댓글 수정에 실패했습니다: ' + (error.response?.data?.message || error.message), 'error');
       }
     },
 
     async deleteComment(commentId) {
-      if (!confirm('정말로 이 댓글을 삭제하시겠습니까?')) return;
+      if (!confirm('댓글을 삭제하시겠습니까?')) return;
       
       try {
-        const fridgeId = this.$route.params.fridgeId;
+        const fridgeId = getFridgeId(this.$store);
         const postId = this.$route.params.postId;
+        
+        if (!fridgeId) {
+          console.error('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
+          this.showSnackbar('냉장고 정보를 찾을 수 없습니다.', 'error');
+          return;
+        }
         
         await axios.delete(
           `${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/post/${postId}/comment/delete/${commentId}`,
@@ -413,11 +460,11 @@ export default {
         // 게시글 정보도 새로고침 (댓글 수 업데이트)
         await this.fetchPostDetail();
         
-        alert('댓글이 삭제되었습니다.');
+        this.showSnackbar('댓글이 삭제되었습니다.', 'error');
         
       } catch (error) {
         console.error('댓글 삭제 실패:', error);
-        alert('댓글 삭제에 실패했습니다: ' + (error.response?.data?.message || error.message));
+        this.showSnackbar('댓글 삭제에 실패했습니다: ' + (error.response?.data?.message || error.message), 'error');
       }
     },
 
@@ -445,8 +492,14 @@ export default {
 
     async toggleLike() {
       try {
-        const fridgeId = this.$route.params.fridgeId;
+        const fridgeId = getFridgeId(this.$store);
         const postId = this.$route.params.postId;
+        
+        if (!fridgeId) {
+          console.error('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
+          alert('냉장고 정보를 찾을 수 없습니다.');
+          return;
+        }
         
         if (this.postDetail.isLiked) {
           // 좋아요 취소
@@ -510,10 +563,16 @@ export default {
     // 게시글 수정 처리
     async handlePostUpdate(updatedPost) {
       try {
-        const fridgeId = this.$route.params.fridgeId;
+        const fridgeId = getFridgeId(this.$store);
         const postId = this.$route.params.postId;
         
-        const response = await axios.put(
+        if (!fridgeId) {
+          console.error('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
+          this.showSnackbar('냉장고 정보를 찾을 수 없습니다.', 'error');
+          return;
+        }
+        
+        await axios.put(
           `${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/post/${postId}/update`,
           updatedPost,
           {
@@ -521,40 +580,54 @@ export default {
           }
         );
         
-        if (response.data.status_code === 200) {
-          // 게시글 정보 새로고침
-          await this.fetchPostDetail();
-          this.showEditModal = false;
-          alert('게시글이 수정되었습니다.');
-        }
+        // 게시글 정보 새로고침
+        await this.fetchPostDetail();
+        
+        // 수정 모달 닫기
+        this.showEditModal = false;
+        
+        this.showSnackbar('게시글이 수정되었습니다.', 'success');
+        
       } catch (error) {
         console.error('게시글 수정 실패:', error);
-        alert('게시글 수정에 실패했습니다: ' + (error.response?.data?.message || error.message));
+        this.showSnackbar('게시글 수정에 실패했습니다: ' + (error.response?.data?.message || error.message), 'error');
       }
+    },
+    
+    // 게시글 삭제 확인 다이얼로그 열기
+    openDeleteDialog() {
+      console.log('openDeleteDialog 호출됨');
+      console.log('현재 showDeleteDialog:', this.showDeleteDialog);
+      this.showDeleteDialog = true;
+      console.log('변경 후 showDeleteDialog:', this.showDeleteDialog);
     },
     
     // 게시글 삭제
     async deletePost() {
-      if (!confirm('정말로 이 게시글을 삭제하시겠습니까?')) return;
-      
       try {
-        const fridgeId = this.$route.params.fridgeId;
+        const fridgeId = getFridgeId(this.$store);
         const postId = this.$route.params.postId;
         
-        const response = await axios.delete(
+        if (!fridgeId) {
+          console.error('Vuex store에서 냉장고 ID를 찾을 수 없습니다.');
+          this.showSnackbar('냉장고 정보를 찾을 수 없습니다.', 'error');
+          return;
+        }
+        
+        await axios.delete(
           `${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/post/delete/${postId}`,
           {
             headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
           }
         );
         
-        if (response.data.status_code === 200) {
-          alert('게시글이 삭제되었습니다.');
-          this.$router.push(`/fridge/${fridgeId}/community`);
-        }
+        // 삭제 완료 상태를 localStorage에 저장하고 게시글 목록 페이지로 이동
+        localStorage.setItem('postDeleted', 'true');
+        this.$router.push('/fridge/community');
+        
       } catch (error) {
         console.error('게시글 삭제 실패:', error);
-        alert('게시글 삭제에 실패했습니다: ' + (error.response?.data?.message || error.message));
+        this.showSnackbar('게시글 삭제에 실패했습니다: ' + (error.response?.data?.message || error.message), 'error');
       }
     },
     
@@ -563,6 +636,10 @@ export default {
       if (!comment || !this.userInfo) return false;
       return comment.writer === this.userInfo.name || 
              comment.writer === this.userInfo.email;
+    },
+
+    showSnackbar(message, color) {
+      this.$refs.commonSnackbar.showSnackbar(message, color);
     }
   }
 }

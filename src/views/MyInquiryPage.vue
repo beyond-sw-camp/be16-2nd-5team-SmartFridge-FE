@@ -631,22 +631,18 @@
     </v-dialog>
 
     <!-- 성공/에러 메시지 -->
-    <v-snackbar
-      v-model="showSnackbar"
-      :color="snackbarColor"
-      :timeout="3000"
-      location="top"
-      class="snackbar"
-    >
-      {{ snackbarMessage }}
-    </v-snackbar>
+    <CommonSnackbar ref="commonSnackbar" />
   </div>
 </template>
 
 <script>
 import axios from 'axios'
+import CommonSnackbar from '@/components/common/CommonSnackbar.vue'
 
 export default {
+  components: {
+    CommonSnackbar
+  },
   data() {
     return {
       inquiries: [],
@@ -677,9 +673,6 @@ export default {
         }
       },
       isSubmitting: false,
-      showSnackbar: false,
-      snackbarMessage: '',
-      snackbarColor: 'success',
       // 프론트엔드 페이징 관련 데이터
       currentPage: 1,
       itemsPerPage: 15, // 한 페이지당 표시할 문의 수를 15개로 조정
@@ -1029,9 +1022,7 @@ export default {
     },
 
     showMessage(message, color = 'success') {
-      this.snackbarMessage = message
-      this.snackbarColor = color
-      this.showSnackbar = true
+      this.$refs.commonSnackbar.showSnackbar(message, color);
     },
 
     async refreshInquiries() {
@@ -2140,12 +2131,7 @@ export default {
   box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
 }
 
-.snackbar {
-  border-radius: 16px;
-  font-size: 1rem;
-  font-weight: 500;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-}
+
 
 /* 상세 보기 모달 스타일 */
 .inquiry-detail-accordion {
