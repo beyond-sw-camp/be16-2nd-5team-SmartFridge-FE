@@ -2,7 +2,6 @@ import GoogleRedirect from "@/views/GoogleRedirect.vue";
 import KakaoRedirect from "@/views/KakaoRedirect.vue";
 import LoginPage from "@/views/LoginPage.vue";
 import MemberCreate from "@/views/MemberCreate.vue";
-import MemberList from "@/views/MemberList.vue";
 import NaverRedirect from "@/views/NaverRedirect.vue";
 import ForgotPasswordPage from "@/views/ForgotPasswordPage.vue";
 import ResetPasswordPage from "@/views/ResetPasswordPage.vue";
@@ -34,11 +33,6 @@ export const MemberRouter = [
     path:'/oauth/naver/redirect',
     name: 'NaverRedirect',
     component: NaverRedirect
-  },
-  {
-    path:'/member/list',
-    name: 'MemberList',
-    component: MemberList
   },
   {
     path:'/member/forgot-password',

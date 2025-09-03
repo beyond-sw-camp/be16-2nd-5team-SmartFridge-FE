@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
+import authService from '@/services/authService.js';
 
 const user = {
     state: {
@@ -62,6 +63,36 @@ const user = {
                         requestUrl: apiError.config?.url,
                         requestParams: apiError.config?.params
                     });
+                    
+                    // 401 에러인 경우 토큰 갱신 시도
+                    if (apiError.response?.status === 401) {
+                        try {
+                            console.log('🔄 Attempting to refresh token...');
+                            await authService.refreshAccessToken();
+                            
+                            // 토큰 갱신 후 다시 API 호출 시도
+                            const retryResponse = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/member/info`, {
+                                headers: {
+                                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+                                }
+                            });
+                            
+                            if (retryResponse.data.status_code === 200 && retryResponse.data.result) {
+                                const userInfo = retryResponse.data.result;
+                                console.log('✅ User info loaded from API after token refresh:', userInfo);
+                                commit('SET_USER_INFO', userInfo);
+                                return userInfo;
+                            }
+                        } catch (refreshError) {
+                            console.error('❌ Token refresh failed:', refreshError);
+                            // 토큰 갱신 실패 시 로그아웃 처리
+                            commit('CLEAR_USER_INFO');
+                            localStorage.clear();
+                            window.location.href = '/';
+                            throw refreshError;
+                        }
+                    }
+                    
                     console.warn('🔄 Using fallback method');
                 }
                 
@@ -90,8 +121,7 @@ const user = {
                 // 토큰이 유효하지 않거나 만료된 경우 로그아웃 처리
                 if (error.response && error.response.status === 401) {
                     commit('CLEAR_USER_INFO');
-                    localStorage.clear();
-                    window.location.href = '/login';
+                    authService.logout();
                 }
                 throw error;
             }
@@ -99,7 +129,7 @@ const user = {
         
         logout({ commit }) {
             commit('CLEAR_USER_INFO');
-            localStorage.clear();
+            authService.logout();
         }
     },
     

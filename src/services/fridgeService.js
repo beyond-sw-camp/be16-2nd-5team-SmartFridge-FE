@@ -1,6 +1,24 @@
 import axios from 'axios';
+import authService from './authService.js';
 
 const API_BASE_URL = process.env.VUE_APP_API_BASE_URL || 'http://localhost:8080';
+
+// 토큰 갱신 중인지 확인하는 플래그
+let isRefreshing = false;
+let failedQueue = [];
+
+// 실패한 요청들을 처리하는 함수
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  
+  failedQueue = [];
+};
 
 // Axios 인스턴스 생성
 const apiClient = axios.create({
@@ -24,15 +42,45 @@ apiClient.interceptors.request.use(
   }
 );
 
-// 응답 인터셉터 - 토큰 만료 처리
+// 응답 인터셉터 - 토큰 만료 시 자동 갱신
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response && error.response.status === 401) {
-      // 토큰 만료 시 로그인 페이지로 이동
-      localStorage.clear();
-      window.location.href = '/login';
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // 401 에러이고, 토큰 갱신 요청이 아닌 경우
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // 이미 토큰 갱신 중인 경우
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers['Authorization'] = `Bearer ${token}`;
+          return apiClient(originalRequest);
+        }).catch(err => {
+          return Promise.reject(err);
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const newToken = await authService.refreshAccessToken();
+        processQueue(null, newToken);
+        
+        // 원래 요청에 새로운 토큰 추가하고 재시도
+        originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        authService.logout();
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
+    
     return Promise.reject(error);
   }
 );
