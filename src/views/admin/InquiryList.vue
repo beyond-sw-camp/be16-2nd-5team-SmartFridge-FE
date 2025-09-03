@@ -165,12 +165,10 @@ export default {
               createdAt: inquiry.createdAt ? new Date(inquiry.createdAt).toLocaleDateString() : '-',
               content: inquiry.contents,
               imageUrls: inquiry.imageUrls || [], // 이미지 URL 배열 추가
-              // comments 배열에서 답변 정보 추출 (첫 번째 댓글을 답변으로 가정)
-              reply: inquiry.comments && inquiry.comments.length > 0 ? 
-                    (inquiry.comments[0].commentContents || inquiry.comments[0].contents) : null,
-              replyDate: inquiry.comments && inquiry.comments.length > 0 && 
-                        (inquiry.comments[0].createdAt || inquiry.comments[0].createdTime) 
-                        ? new Date(inquiry.comments[0].createdAt || inquiry.comments[0].createdTime).toLocaleDateString() : null
+              // 백엔드에서 comments가 단일 객체이므로 그대로 사용
+              reply: inquiry.comments ? (inquiry.comments.commentContents || inquiry.comments.contents) : null,
+              replyDate: inquiry.comments && (inquiry.comments.createdAt || inquiry.comments.createdTime)
+                        ? new Date(inquiry.comments.createdAt || inquiry.comments.createdTime).toLocaleDateString() : null
             };
           }));
           this.filteredInquiries = [...this.inquiries];
@@ -218,12 +216,10 @@ export default {
             author: `Member ID: ${inquiryDetail.memberId}`,
             createdAt: inquiryDetail.createdAt ? new Date(inquiryDetail.createdAt).toLocaleDateString() : '-',
             imageUrls: inquiryDetail.imageUrls || [], // 이미지 URL 배열 추가
-            // comments 배열에서 답변 정보 추출
-            reply: inquiryDetail.comments && inquiryDetail.comments.length > 0 ? 
-                  (inquiryDetail.comments[0].commentContents || inquiryDetail.comments[0].contents) : null,
-            replyDate: inquiryDetail.comments && inquiryDetail.comments.length > 0 && 
-                      (inquiryDetail.comments[0].createdAt || inquiryDetail.comments[0].createdTime) 
-                      ? new Date(inquiryDetail.comments[0].createdAt || inquiryDetail.comments[0].createdTime).toLocaleDateString() : null
+            // 백엔드에서 comments가 단일 객체이므로 그대로 사용
+            reply: inquiryDetail.comments ? (inquiryDetail.comments.commentContents || inquiryDetail.comments.contents) : null,
+            replyDate: inquiryDetail.comments && (inquiryDetail.comments.createdAt || inquiryDetail.comments.createdTime)
+                      ? new Date(inquiryDetail.comments.createdAt || inquiryDetail.comments.createdTime).toLocaleDateString() : null
           };
         } else {
           this.selectedInquiry = inquiry;
