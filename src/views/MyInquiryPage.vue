@@ -1261,7 +1261,7 @@ export default {
   flex-direction: column;
   align-items: center;
   padding-top: 80px;
-  background-color: #f5f5f5;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .background-gradient {

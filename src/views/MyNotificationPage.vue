@@ -1,43 +1,56 @@
 <template>
   <div class="notification-page">
     <!-- 헤더 영역 -->
-    <div class="header-section">
-      <h3 class="page-title">알림 목록</h3>
-      <v-btn 
-        @click="readAll()" 
-        class="read-all-btn d-flex justify-center align-center"
-        color="primary"
-        variant="elevated"
-      >
-        모두 읽음
-      </v-btn>
+    <div class="page-header">
+      <div class="header-content">
+        <div class="header-info">
+          <h1 class="page-title">알림</h1>
+          <p class="page-subtitle">새로운 소식과 중요한 알림을 확인하세요</p>
+        </div>
+        <div class="header-actions">
+          <v-btn 
+            @click="readAll()" 
+            class="read-all-btn"
+            color="primary"
+            variant="elevated"
+            prepend-icon="mdi-check-all"
+            size="large"
+          >
+            모두 읽음
+          </v-btn>
+        </div>
+      </div>
     </div>
 
-    <!-- 탭 네비게이션 -->
-    <div class="tab-navigation">
-      <v-tabs
-        v-model="selectedTab"
-        @update:model-value="filterByTab"
-        class="custom-tabs"
-        color="primary"
-      >
-        <v-tab value="all">전체</v-tab>
-        <v-tab value="food-register">식품등록 알림</v-tab>
-        <v-tab value="expiration">유통기한 알림</v-tab>
-        <v-tab value="post">게시글 알림</v-tab>
-        <v-tab value="comment">댓글알림</v-tab>
-        <v-tab value="inquiry-reply">문의 답변</v-tab>
-        <v-tab 
-          v-if="userType === 'MANAGER'" 
-          value="member"
+    <!-- 메인 콘텐츠 -->
+    <v-card class="main-content-card">
+      <!-- 탭 네비게이션 -->
+      <v-card-title class="notification-tabs-header">
+        <v-tabs
+          v-model="selectedTab"
+          @update:model-value="filterByTab"
+          class="notification-tabs"
+          color="primary"
+          density="compact"
         >
-          멤버 참여
-        </v-tab>
-      </v-tabs>
-    </div>
+          <v-tab value="all" class="notification-tab">전체</v-tab>
+          <v-tab value="food-register" class="notification-tab">식품등록</v-tab>
+          <v-tab value="expiration" class="notification-tab">유통기한</v-tab>
+          <v-tab value="post" class="notification-tab">게시글</v-tab>
+          <v-tab value="comment" class="notification-tab">댓글</v-tab>
+          <v-tab value="inquiry-reply" class="notification-tab">문의답변</v-tab>
+          <v-tab 
+            v-if="userType === 'MANAGER'" 
+            value="member"
+            class="notification-tab"
+          >
+            멤버참여
+          </v-tab>
+        </v-tabs>
+      </v-card-title>
 
-    <!-- 알림 리스트 -->
-    <div class="notification-list">
+      <!-- 알림 리스트 -->
+      <v-card-text class="notification-list">
       <div
         v-for="notification in sortedNotifications"
         :key="notification.id"
@@ -129,31 +142,53 @@
         </div>
       </div>
 
-      <div v-if="isLoading" class="loading-indicator">
-        <v-progress-circular indeterminate color="primary" size="32"></v-progress-circular>
-        <span class="loading-text">알림을 불러오는 중...</span>
-      </div>
-      
-      <div v-else-if="hasMoreData" class="load-more-section">
-        <v-btn @click="loadMoreData" variant="outlined" color="primary" class="load-more-btn">
-          더 보기
-        </v-btn>
-      </div>
-      
-      <div v-else-if="notificationList.length > 0" class="no-more-data">
-        <span class="no-more-text">모든 알림을 불러왔습니다</span>
-      </div>
-    </div>
+        <div v-if="isLoading" class="loading-indicator">
+          <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
+          <p class="loading-text">알림을 불러오는 중...</p>
+        </div>
+        
+        <div v-else-if="hasMoreData" class="load-more-section">
+          <v-btn @click="loadMoreData" variant="outlined" color="primary" class="load-more-btn" size="large">
+            더 보기
+          </v-btn>
+        </div>
+        
+        <div v-else-if="notificationList.length > 0" class="no-more-data">
+          <v-icon size="48" color="grey-lighten-1" class="mb-4">mdi-check-circle</v-icon>
+          <p class="no-more-text">모든 알림을 불러왔습니다</p>
+        </div>
+      </v-card-text>
+    </v-card>
 
     <!-- 삭제 확인 모달 -->
-    <v-dialog v-model="deleteDialog" max-width="400">
-      <v-card>
-        <v-card-title class="text-h6">알림 삭제</v-card-title>
-        <v-card-text>정말 삭제하시겠습니까?</v-card-text>
-        <v-card-actions>
+    <v-dialog v-model="deleteDialog" max-width="500px">
+      <v-card class="delete-dialog-card">
+        <v-card-title class="delete-dialog-header">
+          <v-icon left color="error" size="24">mdi-alert-circle</v-icon>
+          알림 삭제 확인
+        </v-card-title>
+        <v-card-text class="delete-dialog-content">
+          <p class="delete-warning-text">선택한 알림을 정말 삭제하시겠습니까?</p>
+          <p class="delete-info-text">삭제된 알림은 복구할 수 없습니다.</p>
+        </v-card-text>
+        <v-card-actions class="delete-dialog-actions">
           <v-spacer></v-spacer>
-          <v-btn text color="red" @click="deleteNotification">삭제</v-btn>
-          <v-btn text color="grey" @click="deleteDialog = false">취소</v-btn>
+          <v-btn 
+            @click="deleteDialog = false" 
+            variant="outlined" 
+            color="grey"
+            class="mr-3"
+          >
+            취소
+          </v-btn>
+          <v-btn 
+            @click="deleteNotification" 
+            color="error" 
+            variant="elevated"
+          >
+            <v-icon left>mdi-delete</v-icon>
+            삭제
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -426,74 +461,142 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .notification-page {
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  background: linear-gradient(135deg, #f8f9ff 0%, #e8f4ff 100%);
+  padding: 32px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   min-height: 100vh;
-  box-sizing: border-box;
+  position: relative;
 }
 
-.header-section {
+.notification-page::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  opacity: 0.1;
+  z-index: -1;
+}
+
+.page-header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 24px;
+}
+
+.header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
-  padding: 40px 50px 20px 50px;
+}
+
+.header-info {
+  flex: 1;
 }
 
 .page-title {
-  font-size: 1.8rem;
-  font-weight: 600;
-  color: #2c3e50;
+  font-size: 28px;
+  font-weight: 700;
+  color: #333;
+  margin: 0 0 8px 0;
+}
+
+.page-subtitle {
+  font-size: 16px;
+  color: #666;
   margin: 0;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+}
+
 .read-all-btn {
-  background: #667eea;
-  color: white;
-  border-radius: 8px;
-  padding: 12px 20px;
-  font-weight: 500;
+  border-radius: 12px;
   text-transform: none;
-  border: none;
-  transition: background-color 0.2s ease;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(25, 118, 210, 0.3);
+  transition: all 0.3s ease;
 }
 
 .read-all-btn:hover {
-  background: #5a6fd8;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(25, 118, 210, 0.4);
 }
 
-.tab-navigation {
-  margin-bottom: 30px;
-  padding: 0 50px;
+.main-content-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
 }
 
-.custom-tabs {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  width: 100%;
+.notification-tabs-header {
+  padding: 20px 24px 0;
+  background: transparent;
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.notification-tabs {
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+  box-shadow: none;
+}
+
+.notification-tab {
+  font-weight: 500;
+  color: #666;
+  text-transform: none;
+  font-size: 14px;
+  padding: 12px 16px;
+  border-radius: 0;
+  margin: 0;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.notification-tab:hover {
+  background-color: transparent;
+  color: #333;
+}
+
+.notification-tab.v-tab--active {
+  background-color: transparent;
+  color: #1976d2;
+  font-weight: 600;
+  border-bottom: 2px solid #1976d2;
 }
 
 .notification-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 0 50px 30px 50px;
+  gap: 16px;
+  padding: 20px 24px;
 }
 
 .notification-item {
   display: flex;
   align-items: center;
   padding: 20px;
-  background: white;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
   border-left: 4px solid transparent;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 /* 알림 타입별 왼쪽 테두리 색상 */
@@ -538,12 +641,14 @@ onBeforeUnmount(() => {
 }
 
 .notification-item:hover {
+  border-color: rgba(25, 118, 210, 0.3);
+  box-shadow: 0 8px 24px rgba(25, 118, 210, 0.15);
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .notification-item.read {
-  background: #f8f9fa;
+  background: rgba(248, 249, 250, 0.8);
   opacity: 0.8;
 }
 
@@ -563,25 +668,28 @@ onBeforeUnmount(() => {
 }
 
 .delete-btn {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(5px);
   border-radius: 50%;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .delete-btn:hover {
-  background-color: #ffebee;
+  background-color: rgba(255, 235, 238, 0.9);
   transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.2);
 }
 
 .delete-btn .v-icon {
-  transition: color 0.2s ease;
+  transition: color 0.3s ease;
 }
 
 .delete-btn:hover .v-icon {
@@ -617,10 +725,12 @@ onBeforeUnmount(() => {
   font-size: 0.75rem;
   color: #6c757d;
   white-space: nowrap;
-  padding: 2px 8px;
-  background-color: #f8f9fa;
-  border-radius: 12px;
+  padding: 4px 12px;
+  background-color: rgba(248, 249, 250, 0.9);
+  backdrop-filter: blur(5px);
+  border-radius: 16px;
   font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .notification-tags {
@@ -654,51 +764,51 @@ onBeforeUnmount(() => {
 .expiration-chip,
 .food-chip,
 .comment-chip,
-.inquiry-reply-chip {
+.inquiry-reply-chip,
+.post-chip,
+.member-chip {
   font-size: 0.75rem;
   font-weight: 500;
   border-radius: 16px;
-  height: 24px;
+  height: 28px;
+  backdrop-filter: blur(5px);
+  transition: all 0.2s ease;
 }
 
 .expiration-chip {
   border-color: #ff9800;
   color: #e65100;
+  background: rgba(255, 152, 0, 0.1);
 }
 
 .food-chip {
   border-color: #4caf50;
   color: #2e7d32;
+  background: rgba(76, 175, 80, 0.1);
 }
 
 .comment-chip {
   border-color: #2196f3;
   color: #1565c0;
+  background: rgba(33, 150, 243, 0.1);
 }
 
 .inquiry-reply-chip {
   border-color: #4285f4;
   color: #1a73e8;
+  background: rgba(66, 133, 244, 0.1);
 }
 
 .post-chip {
   border-color: #9c27b0;
   color: #6a1b9a;
-}
-
-.qa-chip {
-  border-color: #3f51b5;
-  color: #283593;
+  background: rgba(156, 39, 176, 0.1);
 }
 
 .member-chip {
   border-color: #009688;
   color: #00695c;
-}
-
-.admin-reply-chip {
-  border-color: #2196f3;
-  color: #1565c0;
+  background: rgba(0, 150, 136, 0.1);
 }
 
 /* Vuetify 탭 스타일 오버라이드 */
@@ -708,15 +818,17 @@ onBeforeUnmount(() => {
   color: #6c757d;
   flex: 1;
   min-width: 0;
+  transition: all 0.2s ease;
 }
 
 :deep(.v-tab--selected) {
-  color: #2c3e50;
+  color: #1976d2;
   font-weight: 600;
+  background-color: transparent;
 }
 
 :deep(.v-tab__slider) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #1976d2;
 }
 
 :deep(.v-tabs__wrapper) {
@@ -733,34 +845,181 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
-  gap: 16px;
+  padding: 60px 20px;
+  color: #888;
 }
 
 .loading-text {
-  color: #6c757d;
-  font-size: 0.875rem;
+  margin-top: 16px;
+  font-size: 18px;
+  font-weight: 500;
+  color: #666;
 }
 
 .load-more-section {
   display: flex;
   justify-content: center;
-  padding: 30px 20px;
+  padding: 40px 20px;
 }
 
 .load-more-btn {
-  min-width: 120px;
+  min-width: 140px;
+  border-radius: 12px;
+  text-transform: none;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(25, 118, 210, 0.2);
+  transition: all 0.3s ease;
+}
+
+.load-more-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(25, 118, 210, 0.3);
 }
 
 .no-more-data {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 30px 20px;
+  padding: 40px 20px;
+  color: #888;
+  text-align: center;
 }
 
 .no-more-text {
-  color: #6c757d;
-  font-size: 0.875rem;
-  font-style: italic;
+  margin-top: 16px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #666;
+}
+
+/* 삭제 확인 모달 스타일 */
+.delete-dialog-card {
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.delete-dialog-header {
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+  color: #d32f2f;
+  font-size: 18px;
+  font-weight: 600;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid rgba(211, 47, 47, 0.1);
+}
+
+.delete-dialog-content {
+  padding: 24px;
+}
+
+.delete-warning-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 12px 0;
+}
+
+.delete-info-text {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.delete-dialog-actions {
+  padding: 16px 24px 24px;
+  background: #f8f9fa;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .notification-page {
+    padding: 24px;
+  }
+  
+  .page-header {
+    padding: 20px;
+  }
+  
+  .header-content {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  
+  .page-title {
+    font-size: 24px;
+  }
+  
+  .notification-list {
+    padding: 16px 20px;
+  }
+  
+  .notification-item {
+    padding: 16px;
+  }
+  
+  .notification-content {
+    margin-right: 12px;
+    margin-left: 12px;
+  }
+  
+  .notification-right {
+    gap: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .notification-page {
+    padding: 16px;
+  }
+  
+  .page-header {
+    padding: 16px;
+  }
+  
+  .page-title {
+    font-size: 20px;
+  }
+  
+  .page-subtitle {
+    font-size: 14px;
+  }
+  
+  .notification-list {
+    padding: 12px 16px;
+  }
+  
+  .notification-item {
+    padding: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .notification-content {
+    margin: 0;
+    width: 100%;
+  }
+  
+  .notification-right {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  .notification-tabs {
+    overflow-x: auto;
+  }
+  
+  .notification-tab {
+    min-width: 80px;
+    flex-shrink: 0;
+  }
 }
 </style>

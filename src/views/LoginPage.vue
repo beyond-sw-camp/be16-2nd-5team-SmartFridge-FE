@@ -265,6 +265,11 @@ export default {
           localStorage.setItem("role", role);
           localStorage.setItem("email", email);
           
+          // 토큰 모니터링 시작
+          if (window.tokenManager) {
+            window.tokenManager.startMonitoring();
+          }
+          
           // 로그인 성공 후 FridgeList로 이동
           this.$nextTick(async () => {
             await this.checkUserFridgeStatus();
