@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-main class="gradient-background">
-      <v-container fluid class="pa-0 fill-height">
+      <v-container fluid class="chat-padding fill-height">
         <v-row no-gutters class="fill-height">
           <v-col cols="12" md="4" lg="3" xl="2">
             <ChatSidebar @select-room="handleRoomSelect" />
@@ -59,4 +59,14 @@ onMounted(() => {
   background: linear-gradient(96.94deg, #667EEA 0%, #764BA2 100%);
 }
 
+.chat-padding {
+  padding: 16px !important;
+}
+
+/* 모바일에서는 패딩 줄이기 */
+@media (max-width: 600px) {
+  .chat-padding {
+    padding: 8px !important;
+  }
+}
 </style>

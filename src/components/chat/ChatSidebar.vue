@@ -281,10 +281,13 @@ const leaveRoom = async(room) => {
 .chat-sidebar-card {
   height: 100%;
   border-radius: 24px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12) !important;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .v-divider {
@@ -302,22 +305,55 @@ const leaveRoom = async(room) => {
 }
 
 .v-list-item {
-  border-radius: 12px !important;
-  margin: 4px 0;
-  transition: all 0.2s ease;
+  border-radius: 16px !important;
+  margin: 8px 12px;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .v-list-item:first-child {
-  margin-top: 0 !important;
+  margin-top: 12px !important;
 }
 
 .v-list-item:last-child {
-  margin-bottom: 0 !important;
+  margin-bottom: 12px !important;
 }
 
 .v-list-item:hover {
-  background-color: #f5f5f5;
-  transform: translateX(4px);
+  background: rgba(255, 255, 255, 0.95);
+  transform: scale(1.02);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
+  border-color: rgba(102, 126, 234, 0.4);
+}
+
+/* 내부 컨텐츠 spacing 개선 */
+.v-list-item .d-flex.align-center.fill-height {
+  padding: 16px !important;
+  margin: 4px 0;
+}
+
+.v-list-item .d-flex.align-center.justify-center.fill-height {
+  padding: 20px !important;
+  margin: 6px 0;
+}
+
+/* 읽지 않은 메시지 카운트 스타일 개선 */
+.v-list-item .d-flex > div:first-child {
+  margin-right: 20px !important;
+  min-width: 24px;
+  text-align: center;
+}
+
+/* 채팅방 제목과 설명 간격 개선 */
+.v-list-item-title {
+  margin-bottom: 4px !important;
+}
+
+/* 참여자 수 칩 스타일 개선 */
+.v-chip {
+  margin-left: 12px !important;
 }
 
 .v-window {
@@ -352,13 +388,15 @@ const leaveRoom = async(room) => {
 
 .hover-actions {
   display: flex;
-  color: #333;
+  color: #1e293b;
   width: 100%;
   height: 100%;
   align-items: center;
   justify-content: center;
   border-radius: inherit;
   font-size: 0.875rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
 }
 
 .action-button {
@@ -368,17 +406,21 @@ const leaveRoom = async(room) => {
   justify-content: center;
   height: 100%;
   cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.2s;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  letter-spacing: 0.025em;
 }
 
 .action-button.info:hover {
-  color: #7f7e7e;
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
 }
 .action-button.leave:hover {
-  color: #D32F2F;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
 }
 .action-button.start:hover {
-  color: #1976D2; /* 참여 버튼은 hover 시 파란색으로 강조 */
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
 }
 </style>
