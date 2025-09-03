@@ -44,9 +44,9 @@
     <v-divider></v-divider>
 
     <v-list v-model:selected="selectedItem" density="compact" nav>
+    <template v-for="item in menuItems" :key="item.value">
       <v-list-item
-        v-for="item in menuItems"
-        :key="item.value"
+        v-if="item.title !== '유저관리' || userType === 'MANAGER'"
         :title="item.title"
         :value="item.value"
         :to="item.to"
@@ -60,7 +60,8 @@
           <div class="notification-indicator"></div>
         </template>
       </v-list-item>
-    </v-list>
+    </template>
+  </v-list>
     
     <template v-slot:append>
       <div class="user-info-wrapper">
@@ -102,6 +103,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
+import axios from 'axios';
+import { getResultData } from '@/utils/commonDataHandler';
 
 const store = useStore();
 const logoUrl = new URL('../../assets/images/SFlogo/smartFridge_logo.png', import.meta.url).href;
@@ -116,6 +119,8 @@ const userInfo = computed(() => store.getters.getUserInfo);
 const userName = computed(() => store.getters.getUserName);
 const userProfileImage = computed(() => store.getters.getUserProfileImage);
 const userInitial = computed(() => store.getters.getUserInitial);
+
+const userType = ref([]);
 
 // 표시할 사용자 이름 (기본값 설정)
 const displayUserName = computed(() => {
@@ -138,6 +143,16 @@ const doLogout = () => {
   window.location.href = '/login';
 };
 
+const fetchUserType = async (fridgeId) => {
+  try {
+    const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/member/type`);
+    userType.value = getResultData(response);
+    console.log('userType', userType.value);
+  } catch (error) {
+    console.error('Failed to load user type:', error);
+  }
+}
+
 // 컴포넌트 마운트 시 사용자 정보 로드 및 냉장고 ID 확인
 onMounted(async () => {
   const token = localStorage.getItem('accessToken');
@@ -155,13 +170,14 @@ onMounted(async () => {
   if (!currentFridgeId && window.location.pathname !== '/fridge/list') {
     window.location.href = '/fridge/list';
   }
+  await fetchUserType(currentFridgeId);
 });
 
 const menuItems = computed(() => {
   const inquiryBadgeCount = store.getters['notification/inquiryBadgeCount'];
   const chatBadgeCount = store.getters['notification/chatBadgeCount'];
   const adminChatCount = store.getters['notification/typeCounts']?.ADMIN_CHAT || 0;
-  
+
   const fridgeInfo = store.getters.getCurrentFridgeInfo;
   
   let isManager = false;

@@ -489,6 +489,7 @@ export default {
       try {
         await axios.delete(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}/leave`);
         this.showSnackbar('냉장고에서 나갔습니다.', 'success');
+        this.showLeaveDialog = false; // 다이얼로그 닫기
         await this.fetchFridgeList();
       } catch (error) {
         console.error("냉장고 나가기에 실패했습니다:", error);
@@ -500,6 +501,7 @@ export default {
       try {
         await axios.delete(`${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId}`);
         this.showSnackbar('냉장고가 삭제되었습니다.', 'success');
+        this.showDeleteDialog = false; // 다이얼로그 닫기
         await this.fetchFridgeList();
       } catch (error) {
         console.error("냉장고 삭제에 실패했습니다:", error);

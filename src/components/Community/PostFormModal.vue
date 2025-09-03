@@ -455,8 +455,9 @@ export default {
             }, 0);
           }
           
-          // 미리보기에서 제거
+          // 이미지 삽입 후 미리보기에서 제거
           this.formData.imageFiles.splice(index, 1);
+          this.fileInputKey++; // 파일 입력 컴포넌트의 키를 증가시켜 파일 입력 필드를 다시 렌더링
         }
       } catch (error) {
         console.error('이미지 업로드 실패:', error);

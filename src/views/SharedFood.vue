@@ -371,7 +371,7 @@ export default {
         expirationDateTime: '',
         storageType: '',
         category: '',
-        shareable: true
+        shareable: this.isSharedView
       };
       this.isReadOnly = false;
       this.isModalOpen = true;
