@@ -91,12 +91,22 @@
               <p><strong>답변일:</strong> {{ selectedInquiry.replyDate }}</p>
             </div>
             
-            <div v-else class="reply-form">
+            <div v-else-if="isReplyMode" class="reply-form">
               <h3>답변 작성</h3>
+              <div class="no-reply-info">
+                <p class="no-reply-message">답변이 아직 없습니다.</p>
+              </div>
               <textarea v-model="replyContent" placeholder="답변을 입력하세요..." rows="5"></textarea>
               <div class="form-actions">
                 <button @click="submitReply" class="submit-btn">답변 등록</button>
                 <button @click="closeModal" class="cancel-btn">취소</button>
+              </div>
+            </div>
+            
+            <div v-else class="no-reply-view">
+              <h3>답변</h3>
+              <div class="no-reply-info">
+                <p class="no-reply-message">답변이 아직 없습니다.</p>
               </div>
             </div>
           </div>
@@ -127,6 +137,7 @@ export default {
       searchQuery: '',
       selectedInquiry: null,
       replyContent: '',
+      isReplyMode: false,
       loading: true,
       selectedImage: null // 이미지 확대보기용
     }
@@ -228,17 +239,20 @@ export default {
         } else {
           this.selectedInquiry = inquiry;
         }
+        this.isReplyMode = false; // 보기 모드
         this.replyContent = '';
       } catch (error) {
         console.error('문의 상세 정보 로드 실패:', error);
         console.error('Error details:', error.response?.data);
         this.selectedInquiry = inquiry;
+        this.isReplyMode = false; // 보기 모드
         this.replyContent = '';
       }
     },
     
     replyInquiry(inquiry) {
       this.selectedInquiry = inquiry;
+      this.isReplyMode = true; // 답변 모드
       this.replyContent = '';
     },
     
@@ -287,6 +301,7 @@ export default {
     closeModal() {
       this.selectedInquiry = null;
       this.replyContent = '';
+      this.isReplyMode = false;
     },
     
     openImageModal(imageUrl) {
@@ -314,12 +329,14 @@ export default {
 <style scoped>
 .admin-layout {
   min-height: 100vh;
-  background: #f8f9fa;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .inquiry-list {
-  padding: 20px;
-  max-width: 1200px;
+  padding: 32px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -327,56 +344,124 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 40px;
+  padding: 24px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
 }
 
 .logout-btn {
-  background: #dc3545;
+  background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%);
   color: white;
-  padding: 8px 16px;
+  padding: 12px 24px;
   border: none;
-  border-radius: 4px;
+  border-radius: 12px;
   cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(234, 67, 53, 0.3);
+}
+
+.logout-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(234, 67, 53, 0.4);
 }
 
 .navigation-menu {
   display: flex;
-  gap: 10px;
-  margin-bottom: 30px;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 40px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 8px;
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .nav-item {
-  padding: 10px 20px;
+  padding: 12px 24px;
   text-decoration: none;
-  color: #666;
-  border-radius: 4px;
-  transition: all 0.3s;
+  color: rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  font-size: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s;
+}
+
+.nav-item:hover::before {
+  left: 100%;
 }
 
 .nav-item:hover {
-  background: #f8f9fa;
-  color: #333;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  transform: translateY(-1px);
 }
 
 .nav-item.active {
-  background: #007bff;
+  background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
   color: white;
+  box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
 }
-
-
 
 .filters {
   display: flex;
-  gap: 15px;
-  margin-bottom: 20px;
+  gap: 16px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .filters select, .filters input {
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  font-size: 14px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.filters select:focus, .filters input:focus {
+  outline: none;
+  border-color: #4285f4;
+  box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+}
+
+.filters input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.inquiry-table {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .inquiry-table table {
@@ -385,156 +470,81 @@ export default {
 }
 
 .inquiry-table th, .inquiry-table td {
-  padding: 12px;
+  padding: 16px;
   text-align: left;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .inquiry-table th {
-  background: #f8f9fa;
-  font-weight: bold;
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.inquiry-table td {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+}
+
+.inquiry-table tr:hover {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .completed {
-  color: #28a745;
-  font-weight: bold;
+  color: #34a853;
+  font-weight: 600;
+  background: rgba(52, 168, 83, 0.1);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
 }
 
 .pending {
-  color: #ffc107;
-  font-weight: bold;
+  color: #fbbc04;
+  font-weight: 600;
+  background: rgba(251, 188, 4, 0.1);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
 }
 
 .view-btn, .reply-btn {
-  margin: 0 5px;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.view-btn {
-  background: #17a2b8;
-  color: white;
-}
-
-.reply-btn {
-  background: #28a745;
-  color: white;
-}
-
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.modal-content {
-  background: white;
-  width: 80%;
-  max-width: 600px;
-  max-height: 80%;
-  overflow-y: auto;
-  border-radius: 8px;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #ddd;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-}
-
-.modal-body {
-  padding: 20px;
-}
-
-.content {
-  background: #f8f9fa;
-  padding: 15px;
-  border-radius: 4px;
-  margin: 10px 0;
-  white-space: pre-wrap;
-}
-
-.reply-form textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  margin: 10px 0;
-}
-
-.form-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 15px;
-}
-
-.submit-btn, .cancel-btn {
+  margin: 0 4px;
   padding: 8px 16px;
   border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.submit-btn {
-  background: #28a745;
-  color: white;
-}
-
-.cancel-btn {
-  background: #6c757d;
-  color: white;
-}
-
-/* 문의 이미지 스타일 */
-.inquiry-images {
-  margin: 20px 0;
-}
-
-.image-gallery {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.image-item {
-  position: relative;
-}
-
-.inquiry-image {
-  width: 150px;
-  height: 150px;
-  object-fit: cover;
   border-radius: 8px;
   cursor: pointer;
-  border: 2px solid #ddd;
+  font-weight: 500;
+  font-size: 12px;
   transition: all 0.3s ease;
 }
 
-.inquiry-image:hover {
-  border-color: #007bff;
-  transform: scale(1.02);
+.view-btn {
+  background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(23, 162, 184, 0.3);
 }
 
-/* 이미지 확대보기 모달 */
-.image-modal {
+.view-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(23, 162, 184, 0.4);
+}
+
+.reply-btn {
+  background: linear-gradient(135deg, #34a853 0%, #2d8f47 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(52, 168, 83, 0.3);
+}
+
+.reply-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(52, 168, 83, 0.4);
+}
+
+.modal {
   position: fixed;
   top: 0;
   left: 0;
@@ -544,7 +554,209 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+  width: 90%;
+  max-width: 800px;
+  max-height: 90%;
+  overflow-y: auto;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header h2 {
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.close-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #ffffff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: rotate(90deg);
+}
+
+.modal-body {
+  padding: 24px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.content {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 20px;
+  border-radius: 12px;
+  margin: 16px 0;
+  white-space: pre-wrap;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  line-height: 1.6;
+}
+
+.reply-form textarea {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  margin: 16px 0;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 120px;
+  backdrop-filter: blur(10px);
+}
+
+.reply-form textarea:focus {
+  outline: none;
+  border-color: #4285f4;
+  box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+}
+
+.reply-form textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+.submit-btn, .cancel-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.submit-btn {
+  background: linear-gradient(135deg, #34a853 0%, #2d8f47 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(52, 168, 83, 0.3);
+}
+
+.submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(52, 168, 83, 0.4);
+}
+
+.cancel-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+/* 답변 섹션 스타일 */
+.no-reply-info {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.no-reply-message {
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+  margin: 0;
+  font-size: 14px;
+}
+
+.no-reply-view {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.no-reply-view h3 {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+/* 문의 이미지 스타일 */
+.inquiry-images {
+  margin: 24px 0;
+}
+
+.image-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.image-item {
+  position: relative;
+}
+
+.inquiry-image {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.inquiry-image:hover {
+  border-color: #4285f4;
+  transform: scale(1.05);
+  box-shadow: 0 8px 24px rgba(66, 133, 244, 0.3);
+}
+
+/* 이미지 확대보기 모달 */
+.image-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
   z-index: 2000;
+  backdrop-filter: blur(10px);
 }
 
 .image-modal-content {
@@ -557,14 +769,15 @@ export default {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
 }
 
 .image-close-btn {
   position: absolute;
-  top: -40px;
+  top: -50px;
   right: 0;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
   border: none;
   font-size: 24px;
   width: 40px;
@@ -574,10 +787,51 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #333;
+  color: #ffffff;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
 }
 
 .image-close-btn:hover {
-  background: white;
+  background: rgba(255, 255, 255, 0.2);
+  transform: rotate(90deg);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .inquiry-list {
+    padding: 20px;
+  }
+  
+  .header h1 {
+    font-size: 24px;
+  }
+  
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .filters select, .filters input {
+    width: 100%;
+  }
+  
+  .inquiry-table {
+    overflow-x: auto;
+  }
+  
+  .inquiry-table th, .inquiry-table td {
+    padding: 12px 8px;
+    font-size: 12px;
+  }
+  
+  .modal-content {
+    width: 95%;
+    margin: 20px;
+  }
+  
+  .modal-header h2 {
+    font-size: 20px;
+  }
 }
 </style>
