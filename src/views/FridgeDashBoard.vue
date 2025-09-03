@@ -37,7 +37,6 @@ onMounted(() => {
 <style scoped>
 .fridge-dashboard {
   padding: 32px;
-  margin-left: 16px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   min-height: 100vh;
   position: relative;

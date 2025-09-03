@@ -193,7 +193,7 @@ const menuItems = computed(() => {
   
 
   
-  return [
+  const baseMenuItems = [
     { 
       title: '대시보드', icon: 'mdi-view-dashboard-outline', value: 'dashboard', color: 'blue-darken-1', 
       to: "/fridge/dashboard"
@@ -208,15 +208,21 @@ const menuItems = computed(() => {
     },
     { title: '마이페이지', icon: 'mdi-account', value: 'mypage', color: 'indigo-darken-1', to: "/mypage" },
     { 
-      title: '유저관리', icon: 'mdi-account-cog-outline', value: 'usermanagement', color: 'red-darken-2', to: "/fridge/member/list",
-      badgeCount: userManagementBadgeCount
-    },
-    { 
       title: '문의하기', icon: 'mdi-email-outline', value: 'inquiry', color: 'cyan-darken-1', 
       to: "/inquiry", 
       badgeCount: inquiryBadgeCount > 0 ? 1 : 0
     }
   ];
+
+  // 관리자(MANAGER)인 경우에만 유저관리 탭 추가
+  if (isManager) {
+    baseMenuItems.splice(-1, 0, {
+      title: '유저관리', icon: 'mdi-account-cog-outline', value: 'usermanagement', color: 'red-darken-2', to: "/fridge/member/list",
+      badgeCount: userManagementBadgeCount
+    });
+  }
+
+  return baseMenuItems;
 });
 </script>
 

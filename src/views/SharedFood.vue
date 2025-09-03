@@ -541,7 +541,7 @@ export default {
 <style scoped>
 .shared-food-container {
   padding: 24px;
-  background: #f5f5f5;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   min-height: 100vh;
   position: relative;
 }

@@ -15,6 +15,10 @@
             <v-icon start>mdi-plus</v-icon>
             냉장고 만들기
           </v-btn>
+          <v-btn class="action-btn logout-btn" variant="outlined" color="error" @click="doLogout">
+            <v-icon start>mdi-logout</v-icon>
+            로그아웃
+          </v-btn>
         </div>
       </div>
     </div>
@@ -161,6 +165,7 @@
   gap: 12px;
   align-items: center;
   flex-shrink: 0;
+  margin-top: 8px;
 }
 
 .action-btn {
@@ -183,6 +188,18 @@
 .create-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+}
+
+.logout-btn {
+  border: 2px solid #f56565;
+  color: #f56565;
+  background: rgba(245, 101, 101, 0.05);
+}
+
+.logout-btn:hover {
+  background: rgba(245, 101, 101, 0.1);
+  border-color: #e53e3e;
+  color: #e53e3e;
 }
 
 .fridge-content {
@@ -517,6 +534,23 @@ export default {
     },
     showSnackbar(message, color) {
       this.$refs.commonSnackbar.showSnackbar(message, color);
+    },
+    
+    doLogout() {
+      // 로그아웃 확인 다이얼로그
+      if (confirm('정말 로그아웃 하시겠습니까?')) {
+        // Vuex store의 logout 액션 호출
+        this.$store.dispatch('user/logout');
+        
+        // 로컬 스토리지 정리
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // 로그인 페이지로 이동
+        this.$router.push('/login').catch(() => {
+          window.location.href = '/login';
+        });
+      }
     }
   }
 }
