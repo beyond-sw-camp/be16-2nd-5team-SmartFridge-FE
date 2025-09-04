@@ -811,7 +811,8 @@ export default {
               memberId: inquiry.memberId,
               imageUrls: inquiry.imageUrls || [],
               status: inquiry.status || 'PENDING',
-              comments: inquiry.comments || [],
+              // 백엔드에서 comments가 단일 객체(InquiryCommentResDto)로 오는 것을 배열로 정규화
+              comments: inquiry.comments ? [inquiry.comments] : [],
               createdAt: inquiry.createdAt || new Date().toISOString(),
               updatedAt: inquiry.updatedAt || inquiry.createdAt || new Date().toISOString(),
               isExpanded: false // 아코디언 상태 추가
@@ -1057,7 +1058,7 @@ export default {
     },
 
     getAnswerContent(inquiry) {
-      if (!inquiry || !inquiry.comments || inquiry.comments.length === 0) {
+      if (!inquiry || !Array.isArray(inquiry.comments) || inquiry.comments.length === 0) {
         return '아직 답변이 등록되지 않았습니다.';
       }
       

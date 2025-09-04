@@ -31,16 +31,12 @@
         </v-tabs>
       </v-card-title>
 
-      <!-- 검색 및 필터 -->
+      <!-- 검색 -->
       <v-card-text class="search-section">
         <div class="search-row">
           <div class="search-item">
             <v-text-field v-model="searchQuery" placeholder="제목, 내용, 작성자로 검색" variant="outlined" density="compact"
               class="search-field" prepend-inner-icon="mdi-magnify" @input="onSearchInput" hide-details></v-text-field>
-          </div>
-          <div class="search-item">
-            <v-select v-model="sortBy" :items="sortOptions" variant="outlined" density="compact" class="sort-select"
-              @update:model-value="onSortChange" hide-details></v-select>
           </div>
         </div>
       </v-card-text>
@@ -124,20 +120,13 @@ export default {
       activeBoard: '전체', // 기본값: 전체
       boardCategories: [], // API에서 가져올 카테고리 목록
       searchQuery: '',
-      sortBy: 'latest',
       postList: [],
       isModalOpen: false,
       isLoading: false,
       currentPage: 1,
       pageSize: 10,
       totalPages: 0,
-      totalElements: 0,
-      sortOptions: [
-        { title: '최신순', value: 'latest' },
-        { title: '인기순', value: 'popular' },
-        { title: '조회순', value: 'views' },
-        { title: '좋아요순', value: 'likes' }
-      ]
+      totalElements: 0
     }
   },
   async created() {
@@ -203,10 +192,6 @@ export default {
 
         if (this.searchQuery) {
           url += `&keyword=${encodeURIComponent(this.searchQuery)}`;
-        }
-
-        if (this.sortBy !== 'latest') {
-          url += `&sort=${this.sortBy}`;
         }
 
         console.log('최종 요청 URL:', url);
@@ -299,10 +284,7 @@ export default {
       this.fetchPostList();
     },
 
-    onSortChange() {
-      this.resetPagination();
-      this.fetchPostList();
-    },
+
 
     onPageChange() {
       this.fetchPostList();

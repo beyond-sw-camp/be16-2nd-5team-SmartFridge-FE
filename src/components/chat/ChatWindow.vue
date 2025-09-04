@@ -10,6 +10,32 @@
     <template v-else>
       <v-toolbar density="compact">
         <v-toolbar-title class="font-weight-bold">{{ selectedRoom.roomName }}</v-toolbar-title>
+        <v-spacer></v-spacer>
+        <ParticipantsModal
+          v-model="showParticipantsModal"
+          v-if="selectedRoom?.roomName !== '관리자와의 채팅'"
+          :room-id="selectedRoom?.roomId"
+          :room-type="selectedRoomType"
+          :room-name="selectedRoom?.roomName"
+          @participants-count-updated="updateParticipantCount"
+        >
+          <template v-slot:activator="{ props: menuProps }">
+            <v-btn 
+              v-bind="menuProps"
+              icon="mdi-account-group" 
+              variant="text" 
+              :title="`참여자 목록 (${participantCount}명)`"
+            >
+              <v-badge 
+                :content="participantCount" 
+                color="primary" 
+                :model-value="participantCount > 0"
+              >
+                <v-icon>mdi-account-group</v-icon>
+              </v-badge>
+            </v-btn>
+          </template>
+        </ParticipantsModal>
       </v-toolbar>
       <v-divider />
 
@@ -97,6 +123,8 @@
       :images="modalImages" 
       :start-index="modalStartIndex" 
     />
+
+
   </v-card>
 </template>
 
@@ -107,6 +135,7 @@ import Stomp from 'webstomp-client';
 import axios from 'axios';
 import { getResultData } from '@/utils/commonDataHandler';
 import ImageModal from './ImageModal.vue';
+import ParticipantsModal from './ParticipantsModal.vue';
 
 const props = defineProps({
   selectedRoom: { type: Object, default: null },
@@ -129,6 +158,8 @@ const showNewMessageIndicator = ref(false);
 const showImageModal = ref(false);
 const modalImages = ref([]);
 const modalStartIndex = ref(0);
+const showParticipantsModal = ref(false);
+const participantCount = ref(0);
 
 // timestamp를 Date 객체로 변환하는 함수
 const parseTimestamp = (timestamp) => {
@@ -258,6 +289,7 @@ const resetChatState = () => {
   imagePreview.value = [];
   newImages.value = [];
   showNewMessageIndicator.value = false;
+  participantCount.value = 0; // 참여자 수도 초기화
   closeImageModal(); // 이미지 모달도 닫기
   
   // 구독 상태도 초기화
@@ -428,6 +460,11 @@ const closeImageModal = () => {
   showImageModal.value = false;
   modalImages.value = [];
   modalStartIndex.value = 0;
+};
+
+// 참여자 수 업데이트 함수
+const updateParticipantCount = (count) => {
+  participantCount.value = count;
 };
 
 // beforeunload 이벤트 핸들러

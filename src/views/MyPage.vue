@@ -210,10 +210,18 @@
                 @click="viewPost(post)"
               >
                 <div class="post-content">
-                  <div class="post-title">{{ post.title }}</div>
-                  <div class="post-meta">
-                    <span class="post-category">{{ post.category }}</span>
-                    <span class="post-date">{{ formatDate(post.createdAt) }}</span>
+                  <div class="post-header">
+                    <div class="post-left">
+                      <div class="post-title">{{ post.title }}</div>
+                      <span class="post-date">{{ post.timeAgo }}</span>
+                    </div>
+                    <div class="post-right">
+                      <span class="post-category">{{ post.categoryName }}</span>
+                      <span class="post-fridge" v-if="post.fridgeName">
+                        <v-icon size="14">mdi-fridge</v-icon>
+                        {{ post.fridgeName }}
+                      </span>
+                    </div>
                   </div>
                   <div class="post-stats">
                     <span class="stat">
@@ -1257,17 +1265,29 @@ export default {
   transform: translateY(-2px);
 }
 
-.post-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
+.post-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 8px;
 }
 
-.post-meta {
+.post-left {
   display: flex;
-  gap: 12px;
-  margin-bottom: 8px;
+  align-items: center;
+  gap: 8px;
+}
+
+.post-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.post-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .post-category {
@@ -1276,6 +1296,17 @@ export default {
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 12px;
+}
+
+.post-fridge {
+  background: #4caf50;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .post-date {
