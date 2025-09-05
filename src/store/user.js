@@ -51,6 +51,7 @@ const user = {
                     if (response.data.status_code === 200 && response.data.result) {
                         const userInfo = response.data.result;
                         console.log('✅ User info loaded from API:', userInfo);
+                        console.log('🔍 Profile image field in API response:', userInfo.profileImage || userInfo.profile_image || userInfo.avatar || userInfo.image);
                         commit('SET_USER_INFO', userInfo);
                         return userInfo;
                     }
@@ -138,7 +139,22 @@ const user = {
         isLoggedIn: state => state.isLoggedIn,
         getUserName: state => state.userInfo ? state.userInfo.name : '',
         getUserEmail: state => state.userInfo ? state.userInfo.email : '',
-        getUserProfileImage: state => state.userInfo ? state.userInfo.profileImage : null,
+        getUserProfileImage: state => {
+            if (!state.userInfo) return null;
+            
+            // 다양한 필드명으로 프로필 이미지 찾기
+            const profileImage = state.userInfo.profileImage || 
+                               state.userInfo.profile_image || 
+                               state.userInfo.avatar || 
+                               state.userInfo.image ||
+                               state.userInfo.profileImg ||
+                               state.userInfo.profile_img;
+            
+            console.log('🔍 getUserProfileImage - userInfo:', state.userInfo);
+            console.log('🔍 getUserProfileImage - found profileImage:', profileImage);
+            
+            return profileImage;
+        },
         getUserInitial: state => {
             if (state.userInfo && state.userInfo.name) {
                 return state.userInfo.name.charAt(0);

@@ -153,6 +153,7 @@
               <!-- USER용 수정/삭제 버튼 (우측 하단) -->
               <div v-if="role !== 'ADMIN'" class="user-actions-bottom">
                 <v-btn
+                  v-if="inquiry.status !== 'COMPLETED'"
                   @click="openEditModal(inquiry)"
                   variant="outlined"
                   size="small"
@@ -183,7 +184,7 @@
                     <div class="detail-content">
                       <div class="detail-row">
                         <span class="detail-label">답변일:</span>
-                        <span class="detail-value">{{ formatDate(inquiry.updatedAt) }}</span>
+                        <span class="detail-value">{{ getReplyDate(inquiry) }}</span>
                       </div>
                       <div class="detail-row">
                         <span class="detail-label">답변 내용:</span>
@@ -216,6 +217,7 @@
                         v-for="(imageUrl, index) in inquiry.imageUrls" 
                         :key="index"
                         class="image-item"
+                        @click="openImageModal(inquiry.imageUrls, index)"
                       >
                         <img :src="imageUrl" :alt="`첨부 이미지 ${index + 1}`" class="attached-image" />
                       </div>
@@ -239,10 +241,6 @@
             class="pagination"
           ></v-pagination>
           
-          <div class="page-info">
-            총 {{ allInquiries.length }}개의 문의 중 {{ (currentPage - 1) * itemsPerPage + 1 }}-{{ Math.min(currentPage * itemsPerPage, allInquiries.length) }}번째 표시
-            <span v-if="totalPages > 1" class="page-count">({{ currentPage }}/{{ totalPages }} 페이지)</span>
-          </div>
         </div>
       </div>
 
@@ -435,9 +433,14 @@
                   :key="index"
                   class="existing-image-item"
                 >
-                  <img :src="imageUrl" :alt="`기존 이미지 ${index + 1}`" class="existing-image" />
+                  <img 
+                    :src="imageUrl" 
+                    :alt="`기존 이미지 ${index + 1}`" 
+                    class="existing-image"
+                    @click="openImageModal(editData.existingImages, index)"
+                  />
                   <v-btn
-                    @click="removeExistingImage(index)"
+                    @click.stop="removeExistingImage(index)"
                     icon
                     variant="text"
                     size="small"
@@ -632,16 +635,26 @@
 
     <!-- 성공/에러 메시지 -->
     <CommonSnackbar ref="commonSnackbar" />
+
+    <!-- 이미지 확대 모달 -->
+    <ImageModal
+      v-model="showImageModal"
+      :images="selectedImages"
+      :start-index="selectedImageIndex"
+      @update:model-value="closeImageModal"
+    />
   </div>
 </template>
 
 <script>
 import axios from 'axios'
 import CommonSnackbar from '@/components/common/CommonSnackbar.vue'
+import ImageModal from '@/components/chat/ImageModal.vue'
 
 export default {
   components: {
-    CommonSnackbar
+    CommonSnackbar,
+    ImageModal
   },
   data() {
     return {
@@ -702,7 +715,10 @@ export default {
       },
       isSubmittingEdit: false, // 수정 제출 중 상태
       showDeleteConfirmModal: false, // 삭제 확인 모달 상태
-      isDeleting: false // 삭제 중 상태
+      isDeleting: false, // 삭제 중 상태
+      showImageModal: false, // 이미지 모달 상태
+      selectedImages: [], // 선택된 이미지들
+      selectedImageIndex: 0 // 선택된 이미지 인덱스
     }
   },
   computed: {
@@ -801,6 +817,16 @@ export default {
         
         if (inquiries.length > 0) {
           
+          // 디버깅을 위한 콘솔 로그
+          console.log('Raw inquiries data:', inquiries);
+          if (inquiries[0]) {
+            console.log('First inquiry full data:', inquiries[0]);
+            console.log('First inquiry comments field:', inquiries[0].comments);
+            console.log('Comments type:', typeof inquiries[0].comments);
+            console.log('Comments is null:', inquiries[0].comments === null);
+            console.log('Comments is undefined:', inquiries[0].comments === undefined);
+          }
+          
           // 모든 문의 데이터를 allInquiries에 저장
           this.allInquiries = inquiries.map(inquiry => {
             const mappedInquiry = {
@@ -811,8 +837,9 @@ export default {
               memberId: inquiry.memberId,
               imageUrls: inquiry.imageUrls || [],
               status: inquiry.status || 'PENDING',
-              // 백엔드에서 comments가 단일 객체(InquiryCommentResDto)로 오는 것을 배열로 정규화
-              comments: inquiry.comments ? [inquiry.comments] : [],
+              // 백엔드에서 comments → comment로 필드명 변경됨
+              comment: inquiry.comment || null,
+              comments: inquiry.comments || null, // 기존 호환성 유지
               createdAt: inquiry.createdAt || new Date().toISOString(),
               updatedAt: inquiry.updatedAt || inquiry.createdAt || new Date().toISOString(),
               isExpanded: false // 아코디언 상태 추가
@@ -1058,13 +1085,106 @@ export default {
     },
 
     getAnswerContent(inquiry) {
-      if (!inquiry || !Array.isArray(inquiry.comments) || inquiry.comments.length === 0) {
+      // 백엔드에서 comments → comment로 필드명 변경됨
+      if (!inquiry) {
         return '아직 답변이 등록되지 않았습니다.';
       }
       
-      // comments 배열에서 가장 최근 답변의 contents를 가져옴
-      const latestComment = inquiry.comments[inquiry.comments.length - 1];
-      return latestComment.contents || '답변 내용을 불러올 수 없습니다.';
+      // comment 필드 확인 (새로운 구조)
+      if (inquiry.comment && typeof inquiry.comment === 'string') {
+        return inquiry.comment;
+      }
+      
+      // 기존 comments 필드와의 호환성 유지
+      if (inquiry.comments) {
+        if (typeof inquiry.comments === 'string') {
+          return inquiry.comments;
+        }
+        
+        // comments가 객체인 경우 (OneToOne 관계)
+        if (typeof inquiry.comments === 'object' && !Array.isArray(inquiry.comments)) {
+          const answerContent = inquiry.comments.contents || 
+                               inquiry.comments.commentContents || 
+                               inquiry.comments.content ||
+                               inquiry.comments.commentContent ||
+                               inquiry.comments.answer ||
+                               inquiry.comments.reply;
+          
+          if (answerContent) {
+            return answerContent;
+          }
+        }
+        
+        // comments가 배열인 경우 (OneToMany 관계)
+        if (Array.isArray(inquiry.comments)) {
+          if (inquiry.comments.length === 0) {
+            return '아직 답변이 등록되지 않았습니다.';
+          }
+          
+          const latestComment = inquiry.comments[inquiry.comments.length - 1];
+          
+          // 디버깅을 위한 콘솔 로그
+          console.log('Latest comment structure:', latestComment);
+          console.log('Available fields:', Object.keys(latestComment));
+          
+          const answerContent = latestComment.commentContents || 
+                               latestComment.contents || 
+                               latestComment.content ||
+                               latestComment.commentContent ||
+                               latestComment.answer ||
+                               latestComment.reply;
+          
+          if (!answerContent) {
+            console.warn('답변 내용을 찾을 수 없습니다. Comment object:', latestComment);
+            return '답변 내용을 불러올 수 없습니다.';
+          }
+          
+          return answerContent;
+        }
+      }
+      
+      return '아직 답변이 등록되지 않았습니다.';
+    },
+
+    getReplyDate(inquiry) {
+      if (!inquiry) {
+        return '-';
+      }
+      
+      // comments가 객체인 경우 (OneToOne 관계)
+      if (inquiry.comments && typeof inquiry.comments === 'object' && !Array.isArray(inquiry.comments)) {
+        if (inquiry.comments.createdTime) {
+          return this.formatDate(inquiry.comments.createdTime);
+        }
+        // createdTime이 없으면 문의의 updatedAt 사용 (임시)
+        if (inquiry.updatedAt) {
+          return this.formatDate(inquiry.updatedAt);
+        }
+      }
+      
+      // comments가 배열인 경우 (OneToMany 관계)
+      if (inquiry.comments && Array.isArray(inquiry.comments) && inquiry.comments.length > 0) {
+        const latestComment = inquiry.comments[inquiry.comments.length - 1];
+        if (latestComment.createdTime) {
+          return this.formatDate(latestComment.createdTime);
+        }
+        // createdTime이 없으면 문의의 updatedAt 사용 (임시)
+        if (inquiry.updatedAt) {
+          return this.formatDate(inquiry.updatedAt);
+        }
+      }
+      
+      // comment 필드 확인 (새로운 구조)
+      if (inquiry.comment && typeof inquiry.comment === 'object' && inquiry.comment.createdTime) {
+        return this.formatDate(inquiry.comment.createdTime);
+      }
+      
+      // 모든 경우에 해당하지 않으면 문의의 updatedAt 사용 (임시)
+      if (inquiry.updatedAt) {
+        return this.formatDate(inquiry.updatedAt);
+      }
+      
+      return '-';
     },
 
     openAnswerModal(inquiry) {
@@ -1088,10 +1208,21 @@ export default {
       this.isSubmittingAnswer = true;
 
       try {
-                 const requestData = {
-           content: this.answerData.contents
-         };
-        const response = await axios.post(`${process.env.VUE_APP_API_BASE_URL}/inquirycomment/create?inquiryId=${this.selectedInquiry.id}`, requestData);
+        const requestData = {
+          commentContents: this.answerData.contents
+        };
+        const response = await axios.post(
+          `${process.env.VUE_APP_API_BASE_URL}/admin/inquiry/${this.selectedInquiry.id}/reply`, 
+          requestData,
+          {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        // 답변 등록 응답 로깅
+        console.log('Answer registration response:', response.data);
         
         if (response.data.status_code === 201) {
           this.showMessage('답변이 성공적으로 등록되었습니다.', 'success');
@@ -1113,6 +1244,9 @@ export default {
         }
       } catch (error) {
         console.error('답변 등록 오류:', error);
+        console.error('Error response:', error.response?.data);
+        console.error('Error status:', error.response?.status);
+        console.error('Error headers:', error.response?.headers);
         this.showMessage('답변 등록 중 오류가 발생했습니다.', 'error');
       } finally {
         this.isSubmittingAnswer = false;
@@ -1249,6 +1383,20 @@ export default {
        } finally {
          this.isDeleting = false;
        }
+     },
+
+     // 이미지 클릭 핸들러
+     openImageModal(images, imageIndex = 0) {
+       this.selectedImages = images;
+       this.selectedImageIndex = imageIndex;
+       this.showImageModal = true;
+     },
+
+     // 이미지 모달 닫기
+     closeImageModal() {
+       this.showImageModal = false;
+       this.selectedImages = [];
+       this.selectedImageIndex = 0;
      }
    }
  }
@@ -1777,6 +1925,7 @@ export default {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
 }
 
@@ -2137,9 +2286,6 @@ export default {
 
 
 /* 상세 보기 모달 스타일 */
-.inquiry-detail-accordion {
-  /* No specific styles needed here, as the content is now inline */
-}
 
 .detail-section {
   margin-bottom: 24px;
@@ -2193,6 +2339,10 @@ export default {
   border-left: 4px solid #1976d2;
   white-space: pre-wrap;
   word-break: break-word;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .answer-text {
@@ -2243,6 +2393,7 @@ export default {
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: transform 0.2s ease;
+  cursor: pointer;
 }
 
 .image-item:hover {
@@ -2334,6 +2485,7 @@ export default {
 
   .inquiry-text {
     -webkit-line-clamp: 4; /* More lines on small screens */
+    line-clamp: 4;
   }
 
   .pagination-section {
@@ -2540,6 +2692,24 @@ export default {
   transform: translateY(-1px);
 }
 
+/* 비활성화된 수정/삭제 버튼 스타일 */
+.edit-btn-bottom:disabled,
+.delete-btn-bottom:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+  color: #9ca3af !important;
+}
+
+.edit-btn-bottom:disabled:hover,
+.delete-btn-bottom:disabled:hover {
+  transform: none;
+  box-shadow: none;
+  background-color: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+}
+
 /* 기존 수정/삭제 버튼 스타일 (아코디언 내부용) */
 .user-actions {
   display: flex;
@@ -2704,6 +2874,7 @@ export default {
   height: 120px;
   object-fit: cover;
   display: block;
+  cursor: pointer;
 }
 
 .remove-image-btn {

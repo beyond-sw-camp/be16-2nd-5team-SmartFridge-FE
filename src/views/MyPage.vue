@@ -631,24 +631,29 @@ export default {
         console.log('알림 설정 조회 시도 중...')
         
         const response = await axios.get(
-          `${process.env.VUE_APP_API_BASE_URL}/notification/setting`,
+          `${process.env.VUE_APP_API_BASE_URL}/member/mynoti`,
           {
             headers: { 'Authorization': `Bearer ${token}` }
           }
         )
         
         console.log('알림 설정 조회 성공:', response.data)
+        console.log('조회된 설정 배열:', response.data.result)
         
-        // 백엔드에서 받은 설정으로 현재 설정 업데이트
-        if (response.data && Array.isArray(response.data)) {
-          const serverSettings = response.data
+        // CommonDto 구조에 맞춰 응답 처리
+        if (response.data.status_code === 200 && response.data.result && Array.isArray(response.data.result)) {
+          const serverSettings = response.data.result
+          console.log('서버 설정 매핑 전:', serverSettings)
           this.notificationSettings.forEach(setting => {
-            // 백엔드에서 NotificationSetting 객체 배열로 응답하는 경우
+            // 백엔드에서 NotificationSettingDto 객체 배열로 응답하는 경우
             const serverSetting = serverSettings.find(s => s.notificationSettingType === setting.type)
+            console.log(`설정 ${setting.type} 매핑:`, serverSetting)
             if (serverSetting) {
-              setting.isActive = serverSetting.isActive
+              setting.isActive = serverSetting.active
+              console.log(`설정 ${setting.type} 업데이트됨: ${setting.isActive}`)
             }
           })
+          console.log('최종 UI 설정:', this.notificationSettings)
         }
         
         // 원본 설정 저장 (깊은 복사)

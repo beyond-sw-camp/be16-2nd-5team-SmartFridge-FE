@@ -9,10 +9,26 @@
               <span class="gradient-text">SmartFridge</span>
               <br>스마트한 냉장고 관리의 시작
             </h1>
-                         <p class="hero-subtitle">
+            <p class="hero-subtitle">
                공용냉장고를 스마트하게 관리하여 음식 낭비를 줄이고, 함께 사용하는 공간을 효율적으로 운영해보세요
              </p>
-            
+            <div class="cta-content">
+              <h2 class="cta-title">지금 바로 시작해보세요</h2>
+              <p class="cta-subtitle">
+                SmartFridge와 함께 더 스마트한 냉장고 관리 경험을 만들어보세요
+              </p>
+              <v-btn
+                size="x-large"
+                color="primary"
+                class="cta-button-large"
+                :to="'/login'"
+                elevation="8"
+                rounded="xl"
+              >
+                <v-icon start icon="mdi-rocket-launch"></v-icon>
+                무료로 시작하기
+              </v-btn>
+            </div>
           </div>
           <div class="hero-image">
             <div class="hero-img-container">
@@ -37,10 +53,10 @@
         </div>
         
         <v-row class="features-grid">
-          <v-col cols="12" md="4" v-for="feature in features" :key="feature.title">
+          <v-col cols="12" md="6" v-for="feature in features" :key="feature.title">
             <v-card class="feature-card" elevation="4" rounded="xl">
               <div class="feature-icon-wrapper">
-                <v-icon :icon="feature.icon" size="48" :color="feature.color"></v-icon>
+                <v-icon :icon="feature.icon" size="56" :color="feature.color"></v-icon>
               </div>
               <v-card-title class="feature-title">{{ feature.title }}</v-card-title>
               <v-card-text class="feature-description">
@@ -88,28 +104,6 @@
       </v-container>
     </section>
 
-    <!-- CTA Section -->
-    <section class="cta-section">
-      <v-container>
-        <div class="cta-content">
-          <h2 class="cta-title">지금 바로 시작해보세요</h2>
-          <p class="cta-subtitle">
-            SmartFridge와 함께 더 스마트한 냉장고 관리 경험을 만들어보세요
-          </p>
-          <v-btn
-            size="x-large"
-            color="primary"
-            class="cta-button-large"
-            :to="'/login'"
-            elevation="8"
-            rounded="xl"
-          >
-            <v-icon start icon="mdi-rocket-launch"></v-icon>
-            무료로 시작하기
-          </v-btn>
-        </div>
-      </v-container>
-    </section>
   </div>
 </template>
 
@@ -124,28 +118,16 @@ const heroImageUrl = new URL('../assets/images/SFlogo/smartFridge_logo.png', imp
 // 핵심 기능 데이터
 const features = ref([
   {
-    title: 'AI 식품 인식',
-    description: '카메라로 음식을 촬영하면 자동으로 식품을 인식하고 유통기한을 관리해드립니다.',
-    icon: 'mdi-camera-outline',
-    color: 'blue'
+    title: '실시간 공유',
+    description: '기숙사, 회사 등 공용공간 사용자들과 냉장고 내용을 실시간으로 공유하고 협력하여 관리할 수 있습니다.',
+    icon: 'mdi-account-group',
+    color: 'green'
   },
-     {
-     title: '실시간 공유',
-     description: '기숙사, 회사 등 공용공간 사용자들과 냉장고 내용을 실시간으로 공유하고 협력하여 관리할 수 있습니다.',
-     icon: 'mdi-account-group',
-     color: 'green'
-   },
   {
     title: '스마트 알림',
     description: '유통기한 임박, 재료 부족 등 중요한 정보를 적시에 알려주어 음식 낭비를 방지합니다.',
     icon: 'mdi-bell-ring',
     color: 'orange'
-  },
-  {
-    title: '레시피 추천',
-    description: '냉장고에 있는 재료를 바탕으로 맛있는 레시피를 추천해드립니다.',
-    icon: 'mdi-food-variant',
-    color: 'purple'
   },
   {
     title: '커뮤니티',
@@ -181,7 +163,7 @@ const steps = ref([
    },
   {
     title: '식품 관리',
-    description: 'AI가 자동으로 식품을 인식하고 관리해드립니다.'
+    description: '모든 음식의 유통기한을 등록하고 냉장고에서 유통기한 관리를 해보세요.'
   }
 ]);
 
@@ -198,9 +180,13 @@ const steps = ref([
 .hero-section {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 120px 0 80px;
+  height: 100vh;
+  min-height: 100vh;
+  padding: 0;
   position: relative;
   overflow: hidden;
+  display: flex;
+  align-items: center;
 }
 
 .hero-section::before {
@@ -217,6 +203,10 @@ const steps = ref([
 .hero-container {
   position: relative;
   z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
 }
 
 .hero-content {
@@ -287,7 +277,7 @@ const steps = ref([
 }
 
 .hero-img {
-  max-width: 400px;
+  max-width: 500px;
   height: auto;
   border-radius: 50%;
   filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.4));
@@ -305,8 +295,8 @@ const steps = ref([
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 450px;
-  height: 450px;
+  width: 550px;
+  height: 550px;
   background: radial-gradient(circle, rgba(255, 215, 0, 0.2) 0%, rgba(255, 215, 0, 0.1) 40%, transparent 70%);
   border-radius: 50%;
   animation: glow 4s ease-in-out infinite alternate;
@@ -364,7 +354,8 @@ const steps = ref([
 
 .feature-card {
   height: 100%;
-  padding: 40px 24px;
+  min-height: 280px;
+  padding: 50px 30px;
   text-align: center;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   border: none;
@@ -377,27 +368,27 @@ const steps = ref([
 }
 
 .feature-icon-wrapper {
-  width: 80px;
-  height: 80px;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
   background: linear-gradient(135deg, #f8f9fa, #e9ecef);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 24px;
+  margin: 0 auto 30px;
 }
 
 .feature-title {
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   font-weight: 600;
   color: #333;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .feature-description {
   color: #666;
   line-height: 1.6;
-  font-size: 1rem;
+  font-size: 1.1rem;
 }
 
 /* Stats Section */
@@ -472,23 +463,19 @@ const steps = ref([
   line-height: 1.6;
 }
 
-/* CTA Section */
-.cta-section {
-  padding: 100px 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  text-align: center;
-}
-
+/* CTA Content in Hero Section */
 .cta-content {
+  text-align: left;
+  margin-top: 40px;
+  width: 100%;
   max-width: 600px;
-  margin: 0 auto;
 }
 
 .cta-title {
   font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: 24px;
+  color: white;
 }
 
 .cta-subtitle {
@@ -496,15 +483,21 @@ const steps = ref([
   margin-bottom: 40px;
   opacity: 0.9;
   line-height: 1.6;
+  color: white;
 }
 
 .cta-button-large {
   background: linear-gradient(45deg, #ffd700, #ffed4e) !important;
   color: #333 !important;
   font-weight: 700;
-  padding: 20px 40px;
+  padding: 16px 24px;
   text-transform: none;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: fit-content;
 }
 
 /* Responsive Design */
@@ -530,11 +523,17 @@ const steps = ref([
   .cta-title {
     font-size: 2rem;
   }
+  
+  .cta-content {
+    margin-top: 30px;
+  }
 }
 
 @media (max-width: 600px) {
   .hero-section {
-    padding: 80px 0 60px;
+    height: 100vh;
+    min-height: 100vh;
+    padding: 0;
   }
   
   .hero-title {
@@ -555,13 +554,25 @@ const steps = ref([
     padding: 60px 0;
   }
   
-  .stats-section,
-  .cta-section {
+  .stats-section {
     padding: 60px 0;
   }
   
   .stat-number {
     font-size: 2.5rem;
+  }
+  
+  .cta-title {
+    font-size: 1.8rem;
+  }
+  
+  .cta-subtitle {
+    font-size: 1rem;
+  }
+  
+  .cta-content {
+    margin-top: 20px;
+    padding: 0 20px;
   }
 }
 </style>

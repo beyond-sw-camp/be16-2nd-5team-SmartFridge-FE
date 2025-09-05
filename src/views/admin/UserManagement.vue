@@ -19,12 +19,6 @@
           <option value="ADMIN">관리자</option>
           <option value="USER">일반사용자</option>
         </select>
-        <select v-model="statusFilter" @change="filterUsers">
-          <option value="">전체 상태</option>
-          <option value="활성">활성</option>
-          <option value="비활성">비활성</option>
-          <option value="정지">정지</option>
-        </select>
         <input type="text" v-model="searchQuery" placeholder="이름 또는 이메일로 검색..." @input="filterUsers">
         <button @click="exportUsers" class="export-btn">사용자 목록 내보내기</button>
       </div>
@@ -39,7 +33,6 @@
               <th>역할</th>
               <th>상태</th>
               <th>가입일</th>
-              <th>마지막 로그인</th>
               <th>작업</th>
             </tr>
           </thead>
@@ -59,7 +52,6 @@
                 </span>
               </td>
               <td>{{ user.createdAt }}</td>
-              <td>{{ user.lastLoginAt || '-' }}</td>
               <td>
                 <button @click="viewUser(user)" class="view-btn">보기</button>
               </td>
@@ -83,7 +75,6 @@
               <p><strong>역할:</strong> {{ selectedUser.role }}</p>
               <p><strong>상태:</strong> {{ selectedUser.status }}</p>
               <p><strong>가입일:</strong> {{ selectedUser.createdAt }}</p>
-              <p><strong>마지막 로그인:</strong> {{ selectedUser.lastLoginAt || '-' }}</p>
               <p><strong>프로필 이미지:</strong> {{ selectedUser.profileImage || '없음' }}</p>
             </div>
             
@@ -107,7 +98,6 @@ export default {
       users: [],
       filteredUsers: [],
       roleFilter: '',
-      statusFilter: '',
       searchQuery: '',
       selectedUser: null,
       loading: true
@@ -163,9 +153,6 @@ export default {
         filtered = filtered.filter(user => user.role === this.roleFilter);
       }
       
-      if (this.statusFilter) {
-        filtered = filtered.filter(user => user.status === this.statusFilter);
-      }
       
       if (this.searchQuery) {
         const query = this.searchQuery.toLowerCase();
@@ -231,7 +218,7 @@ export default {
     },
     
     generateCSV() {
-      const headers = ['ID', '이름', '이메일', '역할', '상태', '가입일', '마지막 로그인'];
+      const headers = ['ID', '이름', '이메일', '역할', '상태', '가입일'];
       const rows = this.filteredUsers.map(user => [
         user.id,
         user.name,
@@ -239,7 +226,6 @@ export default {
         user.role,
         user.status,
         user.createdAt,
-        user.lastLoginAt || '-'
       ]);
       
       return [headers, ...rows]
@@ -423,7 +409,7 @@ export default {
 
 .user-table th, .user-table td {
   padding: 16px;
-  text-align: left;
+  text-align: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 

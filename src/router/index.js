@@ -12,14 +12,14 @@ import { CommunityRouter } from "./CommunityRouter";
 
 const routes = [
   {
-    path: '/', // 기본 경로 - 로그인 페이지
-    name: 'Login',
-    component: LoginPage
+    path: '/', // 기본 경로 - 메인 대시보드
+    name: 'MainDashboard',
+    component: MainDashboard
   },
   {
-    path: '/dashboard', // 메인 대시보드
-    name: 'MainDashboard', 
-    component: MainDashboard
+    path: '/login', // 로그인 페이지
+    name: 'Login',
+    component: LoginPage
   },
   {
     path: '/mypage', // 마이페이지
@@ -56,10 +56,10 @@ router.beforeEach((to, from, next) => {
   } 
   // 관리자 권한이 필요한 페이지인데 관리자가 아닌 경우
   else if (requiresAdmin && userRole !== 'ADMIN') {
-    next('/dashboard');
+    next('/');
   }
   // 이미 로그인된 사용자가 로그인/회원가입 페이지에 접근하려는 경우
-  else if ((to.path === '/' || to.path === '/member/create') && isAuthenticated) {
+  else if ((to.path === '/login' || to.path === '/member/create') && isAuthenticated) {
     // 관리자인 경우 관리자 대시보드로, 일반 사용자인 경우 냉장고 목록으로
     if (userRole === 'ADMIN') {
       next('/admin');

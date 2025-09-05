@@ -4,12 +4,25 @@
       <v-list-item class="pa-4">
         <template v-slot:prepend>
         <v-avatar 
-          color="primary" 
+          class="avatar-gradient"
           size="48"
-          :image="userProfileImage"
         >
-          <span v-if="!userProfileImage" class="text-h6">
-            {{ userName ? userName[0] : '' }}
+          <v-img
+            v-if="userProfileImage && userProfileImage.startsWith('http')"
+            :src="userProfileImage"
+            :alt="userName"
+            cover
+            class="profile-image"
+            @error="handleImageError"
+          />
+          <img
+            v-else-if="userProfileImage && userProfileImage.startsWith('data:')"
+            :src="userProfileImage"
+            :alt="userName"
+            class="profile-image"
+          />
+          <span v-else class="text-white font-weight-bold">
+            {{ userName ? userName[0] : 'U' }}
           </span>
         </v-avatar>
       </template>
@@ -59,13 +72,13 @@
                   
                   <div class="room-badges">
                     <v-chip
-                      v-if="managerRoom.unReadCount > 0"
+                      v-if="(managerRoom.unReadCount || 0) > 0"
                       color="error"
                       variant="elevated"
                       size="small"
                       class="unread-badge"
                     >
-                      {{ managerRoom.unReadCount }}
+                      {{ managerRoom.unReadCount || 0 }}
                     </v-chip>
                   </div>
                 </div>
@@ -116,13 +129,13 @@
                   
                   <div class="room-badges">
                     <v-chip
-                      v-if="room.unReadCount > 0"
+                      v-if="(room.unReadCount || 0) > 0"
                       color="error"
                       variant="elevated"
                       size="small"
                       class="unread-badge"
                     >
-                      {{ room.unReadCount }}
+                      {{ room.unReadCount || 0 }}
                     </v-chip>
                   </div>
                 </div>
@@ -404,6 +417,12 @@ const leaveRoom = async(room) => {
     // 2. API 호출이 성공하든 실패하든, 마지막에는 로딩 상태를 false로 변경
     isLoading.value = false;
   }
+};
+
+// 이미지 로딩 오류 처리
+const handleImageError = () => {
+  console.log('프로필 이미지 로딩 실패');
+  // 이미지 로딩 실패 시 fallback으로 사용자 이름 첫 글자 표시
 };
 </script>
 
@@ -1383,5 +1402,18 @@ const leaveRoom = async(room) => {
   .creator-text {
     color: #fbbf24 !important;
   }
+}
+
+/* 프로필 이미지 스타일 */
+.profile-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-gradient {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: bold;
 }
 </style>

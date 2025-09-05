@@ -32,7 +32,16 @@
       </div>
 
       <div class="notification-table">
-        <table>
+        <!-- 디버깅 정보 -->
+        <div v-if="loading" class="loading-message">로딩 중...</div>
+        <div v-else-if="notifications.length === 0" class="no-data-message">
+          알림 데이터가 없습니다. (총 알림 수: {{ notifications.length }})
+        </div>
+        <div v-else-if="filteredNotifications.length === 0" class="no-data-message">
+          필터링된 알림이 없습니다. (원본: {{ notifications.length }}, 필터된: {{ filteredNotifications.length }})
+        </div>
+        
+        <table v-if="filteredNotifications.length > 0">
           <thead>
             <tr>
               <th>번호</th>
@@ -127,24 +136,40 @@ export default {
         this.loading = true;
         const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/admin/notification/list`);
         
+        console.log('API 응답 전체:', response);
+        console.log('API 응답 데이터:', response.data);
+        console.log('API 응답 결과:', response.data.result);
+        
         if (response.data.status_code === 200) {
-          this.notifications = response.data.result.map(notification => ({
-            id: notification.notificationId,
-            type: this.getNotificationTypeKorean(notification.type),
-            title: notification.title || '알림',
-            content: notification.message,
-            status: notification.isRead ? '읽음' : '읽지않음',
-            createdAt: notification.createdTime ? new Date(notification.createdTime).toLocaleString() : '-',
-            relatedData: notification.relatedData || null
-          }));
+          const rawNotifications = response.data.result || [];
+          console.log('원본 알림 데이터:', rawNotifications);
+          
+          this.notifications = rawNotifications.map((notification, index) => {
+            console.log(`알림 ${index}:`, notification);
+            console.log('notificationId:', notification.notificationId);
+            console.log('id:', notification.id);
+            console.log('모든 키들:', Object.keys(notification));
+            
+            return {
+              id: notification.notificationId || notification.id || notification.notification_id,
+              type: this.getNotificationTypeKorean(notification.type),
+              title: notification.title || '알림',
+              content: notification.message || notification.content,
+              status: notification.isRead ? '읽음' : '읽지않음',
+              createdAt: notification.createdTime ? new Date(notification.createdTime).toLocaleString() : '-',
+              relatedData: notification.relatedData || null
+            };
+          });
+          
+          console.log('매핑된 알림 데이터:', this.notifications);
           this.filteredNotifications = [...this.notifications];
+        } else {
+          console.error('API 응답 상태 코드가 200이 아님:', response.data.status_code);
+          alert('알림 목록을 불러올 수 없습니다.');
         }
       } catch (error) {
         console.error('알림 목록 로드 실패:', error);
-        this.$store.dispatch('showSnackbar', {
-          message: '알림 목록 로드에 실패했습니다.',
-          color: 'error'
-        });
+        alert('알림 목록 로드에 실패했습니다: ' + (error.response?.data?.status_message || error.message));
       } finally {
         this.loading = false;
       }
@@ -153,6 +178,7 @@ export default {
     getNotificationTypeKorean(type) {
       const typeMap = {
         'INQUIRY_CREATED': '문의등록',
+        'NEW_INQUIRY': '새 문의',
         'ADMIN_REPLY': '답변완료',
         'SYSTEM': '시스템',
         'USER': '사용자',
@@ -191,8 +217,18 @@ export default {
     
     async markAsRead(notification) {
       try {
-        // 백엔드 알림 읽음 처리 API 호출
-        const response = await axios.patch(`${process.env.VUE_APP_API_BASE_URL}/notification/isRead`, [
+        console.log('읽음 처리할 알림:', notification);
+        console.log('알림 ID:', notification.id);
+        
+        // notificationId가 null이거나 undefined인지 확인
+        if (!notification.id) {
+          console.error('알림 ID가 없습니다:', notification);
+          alert('알림 ID가 없어 읽음 처리할 수 없습니다.');
+          return;
+        }
+        
+        // 관리자용 알림 읽음 처리 API 호출
+        const response = await axios.patch(`${process.env.VUE_APP_API_BASE_URL}/admin/notification/isRead`, [
           {
             notificationId: notification.id
           }
@@ -213,18 +249,12 @@ export default {
             this.selectedNotification.status = '읽음';
           }
           
-          this.$store.dispatch('showSnackbar', {
-            message: '알림이 읽음 처리되었습니다.',
-            color: 'success'
-          });
+          alert('알림이 읽음 처리되었습니다.');
         }
       } catch (error) {
         console.error('읽음 처리 실패:', error);
         console.error('Error details:', error.response?.data);
-        this.$store.dispatch('showSnackbar', {
-          message: '읽음 처리에 실패했습니다.',
-          color: 'error'
-        });
+        alert('읽음 처리에 실패했습니다: ' + (error.response?.data?.status_message || error.message));
       }
     },
     
@@ -234,20 +264,29 @@ export default {
         const unreadNotifications = this.notifications.filter(n => n.status === '읽지않음');
         
         if (unreadNotifications.length === 0) {
-          this.$store.dispatch('showSnackbar', {
-            message: '읽지 않은 알림이 없습니다.',
-            color: 'info'
-          });
+          alert('읽지 않은 알림이 없습니다.');
+
+
+          
           return;
         }
         
-        // 읽지 않은 알림들의 ID 배열 생성
-        const notificationReadList = unreadNotifications.map(notification => ({
-          notificationId: notification.id
-        }));
+        // 읽지 않은 알림들의 ID 배열 생성 (유효한 ID만)
+        const notificationReadList = unreadNotifications
+          .filter(notification => notification.id)
+          .map(notification => ({
+            notificationId: notification.id
+          }));
         
-        // 백엔드 전체 읽음 처리 API 호출
-        const response = await axios.patch(`${process.env.VUE_APP_API_BASE_URL}/notification/isRead`, notificationReadList);
+        if (notificationReadList.length === 0) {
+          alert('유효한 알림 ID가 없습니다.');
+          return;
+        }
+        
+        console.log('전체 읽음 처리할 알림들:', notificationReadList);
+        
+        // 관리자용 전체 읽음 처리 API 호출
+        const response = await axios.patch(`${process.env.VUE_APP_API_BASE_URL}/admin/notification/isRead`, notificationReadList);
         
         if (response.data.status_code === 200) {
           // 모든 알림을 읽음으로 변경
@@ -259,26 +298,29 @@ export default {
           
           this.filterNotifications();
           
-          this.$store.dispatch('showSnackbar', {
-            message: '모든 알림이 읽음 처리되었습니다.',
-            color: 'success'
-          });
+          alert('모든 알림이 읽음 처리되었습니다.');
         }
       } catch (error) {
         console.error('전체 읽음 처리 실패:', error);
         console.error('Error details:', error.response?.data);
-        this.$store.dispatch('showSnackbar', {
-          message: '전체 읽음 처리에 실패했습니다.',
-          color: 'error'
-        });
+        alert('전체 읽음 처리에 실패했습니다: ' + (error.response?.data?.status_message || error.message));
       }
     },
     
     async deleteNotification(notification) {
       if (confirm('이 알림을 삭제하시겠습니까?')) {
         try {
-          // 백엔드 알림 삭제 API 호출
-          const response = await axios.delete(`${process.env.VUE_APP_API_BASE_URL}/notification/delete/${notification.id}`);
+          console.log('삭제할 알림:', notification);
+          console.log('알림 ID:', notification.id);
+          
+          if (!notification.id) {
+            console.error('알림 ID가 없습니다:', notification);
+            alert('알림 ID가 없어 삭제할 수 없습니다.');
+            return;
+          }
+          
+          // 관리자용 알림 삭제 API 호출
+          const response = await axios.delete(`${process.env.VUE_APP_API_BASE_URL}/admin/notification/delete/${notification.id}`);
           
           if (response.data.status_code === 200) {
             // 목록에서 해당 알림 제거
@@ -294,18 +336,12 @@ export default {
               this.closeModal();
             }
             
-            this.$store.dispatch('showSnackbar', {
-              message: '알림이 삭제되었습니다.',
-              color: 'success'
-            });
+            alert('알림이 삭제되었습니다.');
           }
         } catch (error) {
           console.error('알림 삭제 실패:', error);
           console.error('Error details:', error.response?.data);
-          this.$store.dispatch('showSnackbar', {
-            message: '알림 삭제에 실패했습니다.',
-            color: 'error'
-          });
+          alert('알림 삭제에 실패했습니다: ' + (error.response?.data?.status_message || error.message));
         }
       }
     },
@@ -729,6 +765,26 @@ export default {
 .close-modal-btn:hover {
   background: rgba(255, 255, 255, 0.2);
   transform: translateY(-1px);
+}
+
+/* 디버깅 메시지 스타일 */
+.loading-message, .no-data-message {
+  text-align: center;
+  padding: 40px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  margin: 20px 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.loading-message {
+  color: #4285f4;
+}
+
+.no-data-message {
+  color: #fbbc04;
 }
 
 /* 반응형 디자인 */

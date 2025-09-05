@@ -17,7 +17,9 @@
         <select v-model="statusFilter" @change="filterInquiries">
           <option value="">전체 상태</option>
           <option value="답변대기">답변대기</option>
+          <option value="처리중">처리중</option>
           <option value="답변완료">답변완료</option>
+          <option value="반려">반려</option>
         </select>
         <input type="text" v-model="searchQuery" placeholder="제목으로 검색..." @input="filterInquiries">
       </div>
@@ -40,14 +42,23 @@
               <td>{{ inquiry.title }}</td>
               <td>{{ inquiry.author }}</td>
               <td>
-                <span :class="inquiry.status === '답변완료' ? 'completed' : 'pending'">
+                <span :class="getStatusClass(inquiry.status)">
                   {{ inquiry.status }}
                 </span>
               </td>
               <td>{{ inquiry.createdAt }}</td>
               <td>
-                <button @click="viewInquiry(inquiry)" class="view-btn">보기</button>
-                <button v-if="inquiry.status === '답변대기'" @click="replyInquiry(inquiry)" class="reply-btn">답변</button>
+                <div class="action-buttons">
+                  <button @click="viewInquiry(inquiry)" class="view-btn">보기</button>
+                  <button v-if="inquiry.status === '답변대기'" @click="replyInquiry(inquiry)" class="reply-btn">답변</button>
+                  <select v-model="inquiry.newStatus" @change="updateStatus(inquiry)" class="status-select">
+                    <option value="">상태 변경</option>
+                    <option value="답변대기">답변대기</option>
+                    <option value="처리중">처리중</option>
+                    <option value="답변완료">답변완료</option>
+                    <option value="반려">반려</option>
+                  </select>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -89,6 +100,9 @@
               <h3>답변</h3>
               <div class="content">{{ selectedInquiry.reply }}</div>
               <p><strong>답변일:</strong> {{ selectedInquiry.replyDate }}</p>
+              <div class="reply-actions">
+                <button @click="editReply" class="edit-reply-btn">답변 수정</button>
+              </div>
             </div>
             
             <div v-else-if="isReplyMode" class="reply-form">
@@ -107,6 +121,19 @@
               <h3>답변</h3>
               <div class="no-reply-info">
                 <p class="no-reply-message">답변이 아직 없습니다.</p>
+              </div>
+            </div>
+            
+            <!-- 답변 수정 모달 -->
+            <div v-if="isEditReplyMode" class="reply-form">
+              <h3>답변 수정</h3>
+              <div class="no-reply-info">
+                <p class="no-reply-message">기존 답변을 수정하세요.</p>
+              </div>
+              <textarea v-model="editReplyContent" placeholder="수정할 답변 내용을 입력하세요..." rows="5"></textarea>
+              <div class="form-actions">
+                <button @click="submitEditReply" class="submit-btn">수정 완료</button>
+                <button @click="cancelEditReply" class="cancel-btn">취소</button>
               </div>
             </div>
           </div>
@@ -138,6 +165,8 @@ export default {
       selectedInquiry: null,
       replyContent: '',
       isReplyMode: false,
+      isEditReplyMode: false,
+      editReplyContent: '',
       loading: true,
       selectedImage: null // 이미지 확대보기용
     }
@@ -157,29 +186,24 @@ export default {
           console.log('First inquiry item:', response.data.result[0]);
           
           this.inquiries = await Promise.all(response.data.result.map(async (inquiry) => {
-            // 작성자 정보 가져오기 시도
-            let authorInfo = `Member ID: ${inquiry.memberId}`;
-            try {
-              // memberId로 사용자 정보 조회 시도 (이 API가 있다면)
-              // const memberResponse = await axios.get(`http://localhost:8080/admin/member/detail/${inquiry.memberId}`);
-              // authorInfo = memberResponse.data.result?.memberEmail || authorInfo;
-            } catch (error) {
-              // 사용자 정보 조회 실패 시 Member ID로 표시
-            }
+            // 작성자 정보 - member email 사용
+            let authorInfo = inquiry.memberEmail || `Member ID: ${inquiry.memberId}`;
             
             return {
               // InquiryResDto 구조에 맞게 수정
               id: inquiry.inquiryId,
               title: inquiry.title,
               author: authorInfo,
-              status: inquiry.status === 'PENDING' ? '답변대기' : '답변완료',
-              createdAt: inquiry.createdAt ? new Date(inquiry.createdAt).toLocaleDateString() : '-',
+              status: this.mapStatus(inquiry.status),
+              createdAt: inquiry.createdTime ? this.formatDate(inquiry.createdTime) : '-',
               content: inquiry.contents,
               imageUrls: inquiry.imageUrls || [], // 이미지 URL 배열 추가
-              // 백엔드에서 comments가 단일 객체이므로 그대로 사용
-              reply: inquiry.comments ? (inquiry.comments.commentContents || inquiry.comments.contents) : null,
-              replyDate: inquiry.comments && (inquiry.comments.createdAt || inquiry.comments.createdTime)
-                        ? new Date(inquiry.comments.createdAt || inquiry.comments.createdTime).toLocaleDateString() : null
+              // OneToOne 관계로 변경된 comments 처리
+              reply: inquiry.comments ? 
+                    (inquiry.comments.commentContents || inquiry.comments.contents) : null,
+              replyDate: inquiry.comments && inquiry.comments.createdTime 
+                        ? this.formatDate(inquiry.comments.createdTime) : null,
+              newStatus: '' // 상태 변경용
             };
           }));
           this.filteredInquiries = [...this.inquiries];
@@ -217,6 +241,10 @@ export default {
         const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/admin/inquiry/detail/${inquiry.id}`);
         
         console.log('Inquiry Detail API Response:', response.data);
+        console.log('Inquiry Detail Result:', response.data.result);
+        console.log('Comments in detail:', response.data.result?.comments);
+        console.log('Comments keys:', response.data.result?.comments ? Object.keys(response.data.result.comments) : 'No comments');
+        console.log('Comments full object:', JSON.stringify(response.data.result?.comments, null, 2));
         
         if (response.data.status_code === 200) {
           const inquiryDetail = response.data.result;
@@ -224,13 +252,15 @@ export default {
             ...inquiry,
             content: inquiryDetail.contents,
             title: inquiryDetail.title,
-            author: `Member ID: ${inquiryDetail.memberId}`,
-            createdAt: inquiryDetail.createdAt ? new Date(inquiryDetail.createdAt).toLocaleDateString() : '-',
+            author: inquiryDetail.memberEmail || `Member ID: ${inquiryDetail.memberId}`,
+            createdAt: inquiryDetail.createdTime ? this.formatDate(inquiryDetail.createdTime) : '-',
             imageUrls: inquiryDetail.imageUrls || [], // 이미지 URL 배열 추가
-            // 백엔드에서 comments가 단일 객체이므로 그대로 사용
-            reply: inquiryDetail.comments ? (inquiryDetail.comments.commentContents || inquiryDetail.comments.contents) : null,
-            replyDate: inquiryDetail.comments && (inquiryDetail.comments.createdAt || inquiryDetail.comments.createdTime)
-                      ? new Date(inquiryDetail.comments.createdAt || inquiryDetail.comments.createdTime).toLocaleDateString() : null
+            // OneToOne 관계로 변경된 comments 처리
+            reply: inquiryDetail.comments ? 
+                  (inquiryDetail.comments.commentContents || inquiryDetail.comments.contents) : null,
+            replyDate: inquiryDetail.comments && inquiryDetail.comments.createdTime 
+                      ? this.formatDate(inquiryDetail.comments.createdTime) 
+                      : (inquiryDetail.comments ? inquiryDetail.createdTime ? this.formatDate(inquiryDetail.createdTime) : '답변일 정보 없음' : null)
           };
         } else {
           this.selectedInquiry = inquiry;
@@ -260,16 +290,33 @@ export default {
       
       try {
         const response = await axios.post(
-          `${process.env.VUE_APP_API_BASE_URL}/admin/inquiry/reply?inquiryId=${this.selectedInquiry.id}`,
+          `${process.env.VUE_APP_API_BASE_URL}/admin/inquiry/reply/${this.selectedInquiry.id}`,
           {
             commentContents: this.replyContent
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json'
+            }
           }
         );
         
         if (response.data.status_code === 201) {
+          // OneToOne 관계에 맞게 답변 정보 업데이트
           this.selectedInquiry.reply = this.replyContent;
-          this.selectedInquiry.replyDate = new Date().toLocaleDateString();
+          this.selectedInquiry.replyDate = this.formatDate(new Date());
           this.selectedInquiry.status = '답변완료';
+          
+          // comments 객체도 업데이트 (백엔드에서 반환된 데이터가 있다면)
+          if (response.data.result && response.data.result.comments) {
+            this.selectedInquiry.comments = response.data.result.comments;
+          } else {
+            // 임시로 현재 시간으로 설정
+            this.selectedInquiry.comments = {
+              commentContents: this.replyContent,
+              createdTime: new Date().toISOString()
+            };
+          }
           
           // 목록 업데이트
           const index = this.inquiries.findIndex(i => i.id === this.selectedInquiry.id);
@@ -298,6 +345,65 @@ export default {
       this.selectedInquiry = null;
       this.replyContent = '';
       this.isReplyMode = false;
+      this.isEditReplyMode = false;
+      this.editReplyContent = '';
+    },
+
+    editReply() {
+      this.isEditReplyMode = true;
+      this.editReplyContent = this.selectedInquiry.reply;
+    },
+
+    cancelEditReply() {
+      this.isEditReplyMode = false;
+      this.editReplyContent = '';
+    },
+
+    async submitEditReply() {
+      if (!this.editReplyContent.trim()) {
+        alert('수정할 답변 내용을 입력해주세요.');
+        return;
+      }
+
+      try {
+        const response = await axios.post(
+          `${process.env.VUE_APP_API_BASE_URL}/admin/inquiry/${this.selectedInquiry.id}/reply/update`,
+          {
+            newCommentContents: this.editReplyContent
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (response.data.status_code === 200) {
+          // 답변 정보 업데이트
+          this.selectedInquiry.reply = this.editReplyContent;
+          this.selectedInquiry.replyDate = this.formatDate(new Date());
+          
+          // 목록 업데이트
+          const index = this.inquiries.findIndex(i => i.id === this.selectedInquiry.id);
+          if (index !== -1) {
+            this.inquiries[index] = { ...this.selectedInquiry };
+          }
+          
+          this.filterInquiries();
+          this.cancelEditReply();
+          
+          this.$store.dispatch('showSnackbar', {
+            message: '답변이 성공적으로 수정되었습니다.',
+            color: 'success'
+          });
+        }
+      } catch (error) {
+        console.error('답변 수정 실패:', error);
+        this.$store.dispatch('showSnackbar', {
+          message: '답변 수정에 실패했습니다.',
+          color: 'error'
+        });
+      }
     },
     
     openImageModal(imageUrl) {
@@ -317,6 +423,103 @@ export default {
       localStorage.clear();
       this.$store.dispatch('user/logout');
       this.$router.push('/');
+    },
+    
+    // 상태 매핑 메서드
+    mapStatus(status) {
+      const statusMap = {
+        'PENDING': '답변대기',
+        'IN_PROGRESS': '처리중',
+        'COMPLETED': '답변완료',
+        'CANCELLED': '반려'
+      };
+      return statusMap[status] || '답변대기';
+    },
+    
+    // 상태를 서버 형식으로 변환하는 메서드
+    mapStatusToServer(status) {
+      const statusMap = {
+        '답변대기': 'PENDING',
+        '처리중': 'IN_PROGRESS',
+        '답변완료': 'COMPLETED',
+        '반려': 'CANCELLED'
+      };
+      return statusMap[status] || 'PENDING';
+    },
+    
+    // 날짜 포맷팅 메서드
+    formatDate(dateString) {
+      try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+          return '-';
+        }
+        return date.toLocaleDateString('ko-KR', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      } catch (error) {
+        console.error('날짜 포맷팅 오류:', error);
+        return '-';
+      }
+    },
+    
+    // 상태 클래스 반환 메서드
+    getStatusClass(status) {
+      const statusClasses = {
+        '답변대기': 'pending',
+        '처리중': 'processing',
+        '답변완료': 'completed',
+        '반려': 'rejected'
+      };
+      return statusClasses[status] || 'pending';
+    },
+    
+    // 상태 업데이트 메서드
+    async updateStatus(inquiry) {
+      if (!inquiry.newStatus || inquiry.newStatus === inquiry.status) {
+        return;
+      }
+      
+      try {
+        const response = await axios.post(
+          `${process.env.VUE_APP_API_BASE_URL}/admin/inquiry/${inquiry.id}/update`,
+          this.mapStatusToServer(inquiry.newStatus),
+          {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (response.data.status_code === 200) {
+          inquiry.status = inquiry.newStatus;
+          inquiry.newStatus = '';
+          
+          // 목록 업데이트
+          const index = this.inquiries.findIndex(i => i.id === inquiry.id);
+          if (index !== -1) {
+            this.inquiries[index] = { ...inquiry };
+          }
+          
+          this.filterInquiries();
+          
+          this.$store.dispatch('showSnackbar', {
+            message: '상태가 성공적으로 변경되었습니다.',
+            color: 'success'
+          });
+        }
+      } catch (error) {
+        console.error('상태 변경 실패:', error);
+        inquiry.newStatus = ''; // 실패 시 선택 초기화
+        this.$store.dispatch('showSnackbar', {
+          message: '상태 변경에 실패했습니다.',
+          color: 'error'
+        });
+      }
     }
   }
 }
@@ -467,7 +670,7 @@ export default {
 
 .inquiry-table th, .inquiry-table td {
   padding: 16px;
-  text-align: left;
+  text-align: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -507,8 +710,25 @@ export default {
   font-size: 12px;
 }
 
+.processing {
+  color: #4285f4;
+  font-weight: 600;
+  background: rgba(66, 133, 244, 0.1);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+.rejected {
+  color: #ea4335;
+  font-weight: 600;
+  background: rgba(234, 67, 53, 0.1);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
 .view-btn, .reply-btn {
-  margin: 0 4px;
   padding: 8px 16px;
   border: none;
   border-radius: 8px;
@@ -516,6 +736,7 @@ export default {
   font-weight: 500;
   font-size: 12px;
   transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
 .view-btn {
@@ -540,6 +761,38 @@ export default {
   box-shadow: 0 4px 12px rgba(52, 168, 83, 0.4);
 }
 
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.status-select {
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  width: auto;
+  min-width: fit-content;
+}
+
+.status-select:focus {
+  outline: none;
+  border-color: #4285f4;
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.1);
+}
+
+.status-select option {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
 .modal {
   position: fixed;
   top: 0;
@@ -558,11 +811,13 @@ export default {
   background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
   width: 90%;
   max-width: 800px;
-  max-height: 90%;
+  max-height: 90vh;
   overflow-y: auto;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
@@ -603,6 +858,9 @@ export default {
 .modal-body {
   padding: 24px;
   color: rgba(255, 255, 255, 0.9);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .content {
@@ -611,8 +869,13 @@ export default {
   border-radius: 12px;
   margin: 16px 0;
   white-space: pre-wrap;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
   border: 1px solid rgba(255, 255, 255, 0.1);
   line-height: 1.6;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .reply-form textarea {
@@ -679,6 +942,40 @@ export default {
 }
 
 /* 답변 섹션 스타일 */
+.reply-detail .content {
+  background: rgba(52, 168, 83, 0.1);
+  border: 1px solid rgba(52, 168, 83, 0.2);
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.reply-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
+}
+
+.edit-reply-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+}
+
+.edit-reply-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+}
+
 .no-reply-info {
   background: rgba(255, 255, 255, 0.05);
   padding: 16px;
