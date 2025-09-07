@@ -11,6 +11,20 @@
       <v-toolbar density="compact">
         <v-toolbar-title class="font-weight-bold">{{ selectedRoom.roomName }}</v-toolbar-title>
         <v-spacer></v-spacer>
+        
+        <!-- 주문 완료 버튼 (공동구매 채팅방 개설자만, 방이 열린 상태일 때만) -->
+        <v-btn
+          v-if="selectedRoomType === 'purchase' && isRoomCreator && isRoomOpen"
+          color="success"
+          variant="elevated"
+          class="order-complete-btn mr-2"
+          @click="completeOrder"
+          :loading="isCompletingOrder"
+        >
+          <v-icon left>mdi-check-circle</v-icon>
+          구매 완료
+        </v-btn>
+        
         <ParticipantsModal
           v-model="showParticipantsModal"
           v-if="selectedRoomType !== 'manager'"
@@ -151,6 +165,31 @@ const modalImages = ref([]);
 const modalStartIndex = ref(0);
 const showParticipantsModal = ref(false);
 const participantCount = ref(0);
+const isCompletingOrder = ref(false);
+
+// 방장 여부를 확인하는 computed 속성
+const isRoomCreator = computed(() => {
+  if (!props.selectedRoom || !props.selectedRoomType || props.selectedRoomType !== 'purchase') {
+    return false;
+  }
+  
+  // ChatSidebar에서 전달받은 isCreator 정보를 직접 사용
+  const isCreator = props.selectedRoom.isCreator || false;
+  
+  return isCreator;
+});
+
+// 방이 열린 상태인지 확인하는 computed 속성
+const isRoomOpen = computed(() => {
+  if (!props.selectedRoom) {
+    return true;
+  }
+  
+  // ChatSidebar에서 전달받은 isOpen 정보를 직접 사용
+  const isOpen = props.selectedRoom.isOpen !== undefined ? props.selectedRoom.isOpen : true;
+  
+  return isOpen;
+});
 
 // timestamp를 Date 객체로 변환하는 함수
 const parseTimestamp = (timestamp) => {
@@ -453,6 +492,36 @@ const closeImageModal = () => {
 // 참여자 수 업데이트 함수
 const updateParticipantCount = (count) => {
   participantCount.value = count;
+};
+
+// 주문 완료 함수
+const completeOrder = async () => {
+  if (!props.selectedRoom || !props.selectedRoomType || props.selectedRoomType !== 'purchase') return;
+  
+  // 방이 닫힌 상태라면 실행하지 않음
+  if (!isRoomOpen.value) {
+    alert('방이 닫힌 상태에서는 주문을 완료할 수 없습니다.');
+    return;
+  }
+
+  const confirmed = confirm('정말로 주문을 완료하시겠습니까? 완료 후에는 취소할 수 없습니다.');
+  if (!confirmed) return;
+
+  isCompletingOrder.value = true;
+
+  try {
+    await axios.delete(
+      `${process.env.VUE_APP_API_BASE_URL}/purchase/chat/${props.selectedRoom.roomId}/complete`,
+      {},
+      { headers: { 'Authorization': `Bearer ${token.value}` } }
+    );
+    alert('공동 구매가 완료되었습니다.');
+  } catch (error) {
+    console.error("요청 실패:", error);
+    alert('요청에 실패했습니다. 다시 시도해주세요.');
+  } finally {
+    isCompletingOrder.value = false;
+  }
 };
 // beforeunload 이벤트 핸들러
 const handleBeforeUnload = () => {
@@ -775,5 +844,64 @@ onUnmounted(() => {
   border-color: rgba(255, 255, 255, 0.5);
 }
 
+/* 주문 완료 버튼 스타일 */
+.order-complete-btn {
+  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%) !important;
+  color: white !important;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.order-complete-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.order-complete-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4) !important;
+  background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%) !important;
+}
+
+.order-complete-btn:hover::before {
+  left: 100%;
+}
+
+.order-complete-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3) !important;
+}
+
+.order-complete-btn .v-icon {
+  animation: pulse-icon 2s infinite;
+}
+
+@keyframes pulse-icon {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* 로딩 상태 스타일 */
+.order-complete-btn.v-btn--loading {
+  background: linear-gradient(135deg, #81c784 0%, #66bb6a 100%) !important;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2) !important;
+}
+
+.order-complete-btn.v-btn--loading .v-icon {
+  animation: none;
+}
 
 </style>

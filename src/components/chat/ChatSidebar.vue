@@ -391,7 +391,23 @@ const isRoomOpen = (room) => {
 
 const selectRoom = (room, roomType) => {
   selectedRoomId.value = room.id;
-  emit('select-room', room, roomType);
+  
+  // isCreator와 isOpen 정보를 room 객체에 추가
+  const roomWithInfo = {
+    ...room,
+    isCreator: room.isCreator || false,
+    isOpen: isRoomOpen(room)
+  };
+  
+  console.log('selectRoom:', {
+    room,
+    roomType,
+    isCreator: room.isCreator,
+    isOpen: isRoomOpen(room),
+    roomWithInfo
+  });
+  
+  emit('select-room', roomWithInfo, roomType);
 };
 
 const startChat = (room) => {

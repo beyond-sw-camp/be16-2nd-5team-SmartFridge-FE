@@ -8,7 +8,10 @@
           </v-col>
           
           <v-col cols="12" md="8" lg="9" xl="10">
-            <ChatWindow :selected-room="selectedRoom" :selected-roomType="selectedRoomType" />
+            <ChatWindow 
+              :selected-room="selectedRoom" 
+              :selected-roomType="selectedRoomType" 
+            />
           </v-col>
         </v-row>
       </v-container>
