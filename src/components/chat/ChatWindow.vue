@@ -62,6 +62,20 @@
             </div>
           </div>
           
+          <!-- 더 많은 메시지 로딩 인디케이터 -->
+          <div v-if="isLoadingMoreMessages" class="load-more-container">
+            <div class="load-more-content">
+              <v-progress-circular
+                indeterminate
+                color="primary"
+                size="32"
+                width="3"
+                class="load-more-spinner"
+              ></v-progress-circular>
+              <p class="load-more-text">과거 메시지를 불러오는 중...</p>
+            </div>
+          </div>
+          
           <!-- 메시지가 없을 때 안내 UI -->
           <div v-else-if="groupedMessages.length === 0" class="empty-chat-container">
             <div class="empty-chat-content">
@@ -72,6 +86,14 @@
               <p class="empty-chat-description">
                 첫 번째 메시지를 작성하여 대화를 시작할 수 있습니다.
               </p>
+            </div>
+          </div>
+          
+          <!-- 더 이상 로드할 메시지가 없을 때 표시 -->
+          <div v-if="!hasMoreMessages && groupedMessages.length > 0" class="no-more-messages">
+            <div class="no-more-content">
+              <v-icon size="24" color="grey-lighten-1">mdi-check-circle-outline</v-icon>
+              <span class="no-more-text">모든 메시지를 불러왔습니다</span>
             </div>
           </div>
           
@@ -195,6 +217,13 @@ const participantCount = ref(0);
 const isCompletingOrder = ref(false);
 const isLoadingMessages = ref(false);
 
+// 페이징 관련 상태
+const isLoadingMoreMessages = ref(false);
+const hasMoreMessages = ref(true);
+const currentPage = ref(0);
+const pageSize = ref(40);
+const isInitialLoad = ref(true);
+
 // 방장 여부를 확인하는 computed 속성
 const isRoomCreator = computed(() => {
   if (!props.selectedRoom || !props.selectedRoomType || props.selectedRoomType !== 'purchase') {
@@ -273,6 +302,11 @@ const parseTimestamp = (timestamp) => {
 
 // 메시지를 날짜별로 그룹화
 const groupedMessages = computed(() => {
+  // messages.value가 배열이 아닌 경우 빈 배열로 처리
+  if (!Array.isArray(messages.value)) {
+    return [];
+  }
+  
   const groups = {};
   
   messages.value.forEach(msg => {
@@ -334,7 +368,18 @@ watch(
 
     if (newRoom && newRoom.roomId) {
       await loadChatHistory(newRoom, newRoomType);
+      isInitialLoad.value = false; // 초기 로드 완료 후 false로 설정
       connectWebsocket(newRoom.roomId, newRoomType);
+      
+      // 스크롤 이벤트 리스너 등록 (방 변경 시마다)
+      nextTick(() => {
+        if (chatBox.value) {
+          const element = chatBox.value.$el || chatBox.value;
+          // 기존 이벤트 리스너 제거 후 새로 등록
+          element.removeEventListener('scroll', handleScroll);
+          element.addEventListener('scroll', handleScroll);
+        }
+      });
     }
   },
   { deep: true }
@@ -350,31 +395,103 @@ const resetChatState = () => {
   participantCount.value = 0; // 참여자 수도 초기화
   closeImageModal(); // 이미지 모달도 닫기
   
+  // 페이징 상태 초기화
+  isLoadingMoreMessages.value = false;
+  hasMoreMessages.value = true;
+  currentPage.value = 0;
+  isInitialLoad.value = true;
+  
   // 구독 상태도 초기화
   subscription.value = null;
 };
 
-const loadChatHistory = async (room, roomType) => {
-  isLoadingMessages.value = true;
+const loadChatHistory = async (room, roomType, isLoadMore = false) => {
+  if (isLoadMore) {
+    isLoadingMoreMessages.value = true;
+  } else {
+    isLoadingMessages.value = true;
+    isInitialLoad.value = true;
+    currentPage.value = 0;
+    hasMoreMessages.value = true;
+  }
+
   try {
-    const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/${roomType}/chat/history/${room.roomId}`);
-    messages.value = getResultData(response);
-    await axios.post(`${process.env.VUE_APP_API_BASE_URL}/${roomType}/chat/${room.roomId}/read`);
-    scrollToBottom();
+    const url = `${process.env.VUE_APP_API_BASE_URL}/${roomType}/chat/history/${room.roomId}?page=${currentPage.value}&size=${pageSize.value}`;
+    const response = await axios.get(url);
+    
+    // Page<ChatMessageDto> 구조에서 content 필드 추출
+    const pageData = getResultData(response);
+    const chatMessages = pageData?.content || [];
+    
+    // 배열이 아닌 경우 빈 배열로 처리
+    const safeNewMessages = Array.isArray(chatMessages) ? chatMessages : [];
+    
+    if (isLoadMore) {
+      // 더 많은 메시지를 로드할 때는 기존 메시지 앞에 추가
+      messages.value = [...safeNewMessages, ...messages.value];
+    } else {
+      // 초기 로드일 때는 메시지 교체
+      messages.value = safeNewMessages;
+      
+      // 읽음 처리
+      try {
+        await axios.post(`${process.env.VUE_APP_API_BASE_URL}/${roomType}/chat/${room.roomId}/read`);
+      } catch (readError) {
+        console.warn('읽음 처리 실패:', readError);
+      }
+    }
+
+    // 더 이상 로드할 메시지가 없는지 확인
+    hasMoreMessages.value = !pageData?.last;
+    
+    if (isLoadMore) {
+      currentPage.value++;
+    } else {
+      currentPage.value = 1; // 초기 로드 후 다음 페이지는 1부터
+      scrollToBottom();
+    }
   } catch (error) {
     console.error("채팅 내역 로딩 실패:", error);
+    
+    // 에러 발생 시 빈 배열로 설정 (초기 로드인 경우만)
+    if (!isLoadMore) {
+      messages.value = [];
+    }
   } finally {
     isLoadingMessages.value = false;
+    isLoadingMoreMessages.value = false;
+    isInitialLoad.value = false;
   }
 };
 
-const handleScroll = () => {
-  const el = chatBox.value;
+const handleScroll = async () => {
+  const el = chatBox.value?.$el || chatBox.value;
   if (!el) return;
+  
   // 사용자가 수동으로 맨 아래로 스크롤하면 새 메시지 표시기를 숨깁니다.
   if (el.scrollHeight - el.scrollTop - el.clientHeight < 1) {
     showNewMessageIndicator.value = false;
   }
+  
+  // 위로 스크롤하여 과거 메시지 로드
+  if (el.scrollTop < 200 && hasMoreMessages.value && !isLoadingMoreMessages.value && !isInitialLoad.value) {
+    const previousScrollHeight = el.scrollHeight;
+    await loadMoreMessages();
+    
+    // 스크롤 위치 유지 (새로 로드된 메시지로 인한 높이 변화 보정)
+    nextTick(() => {
+      const newScrollHeight = el.scrollHeight;
+      el.scrollTop = newScrollHeight - previousScrollHeight;
+    });
+  }
+};
+
+const loadMoreMessages = async () => {
+  if (!props.selectedRoom || !props.selectedRoomType || isLoadingMoreMessages.value || !hasMoreMessages.value) {
+    return;
+  }
+  
+  await loadChatHistory(props.selectedRoom, props.selectedRoomType, true);
 };
 
 const scrollToBottom = () => {
@@ -396,6 +513,12 @@ const connectWebsocket = (roomId, roomType) => {
     // 구독 객체를 저장
     subscription.value = stompClient.value.subscribe(`/topic/chat/${roomType.toUpperCase()}/${roomId}`, (message) => {
       const newMessage = JSON.parse(message.body);
+      
+      // messages.value가 배열이 아닌 경우 빈 배열로 초기화
+      if (!Array.isArray(messages.value)) {
+        messages.value = [];
+      }
+      
       messages.value.push(newMessage);
       
       // 내가 보낸 메시지라면 무조건 스크롤을 아래로 이동
@@ -565,10 +688,16 @@ const handleBeforeUnload = () => {
 onMounted(() => {
   window.addEventListener('beforeunload', handleBeforeUnload);
 });
-// [수정] 컴포넌트가 사라질 때 현재 방 정보를 사용하여 연결 해제 및 이벤트 리스너 제거
+// 컴포넌트가 사라질 때 현재 방 정보를 사용하여 연결 해제 및 이벤트 리스너 제거
 onUnmounted(() => {
   unsubscribe(props.selectedRoom, props.selectedRoomType);
   window.removeEventListener('beforeunload', handleBeforeUnload);
+  
+  // 스크롤 이벤트 리스너 제거
+  if (chatBox.value) {
+    const element = chatBox.value.$el || chatBox.value;
+    element.removeEventListener('scroll', handleScroll);
+  }
 });
 </script>
 
@@ -961,6 +1090,65 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
+/* 더 많은 메시지 로딩 인디케이터 스타일 */
+.load-more-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  margin: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.load-more-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.load-more-spinner {
+  margin: 0;
+}
+
+.load-more-text {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* 더 이상 로드할 메시지가 없을 때 스타일 */
+.no-more-messages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  margin: 16px;
+}
+
+.no-more-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.no-more-text {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+}
+
 /* 빈 채팅방 안내 UI 스타일 */
 .empty-chat-container {
   display: flex;
@@ -1006,6 +1194,24 @@ onUnmounted(() => {
 @media (prefers-color-scheme: dark) {
   .loading-text {
     color: #9ca3af;
+  }
+  
+  .load-more-container {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .load-more-text {
+    color: #9ca3af;
+  }
+  
+  .no-more-content {
+    background: rgba(30, 41, 59, 0.6);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .no-more-text {
+    color: #6b7280;
   }
 }
 

@@ -383,7 +383,6 @@ const refreshPurchaseRooms = async () => {
 const isRoomOpen = (room) => {
   // room.joinStatus 값에 따라 방의 열림/닫힘 상태 판단
   // OPEN: 열린 상태, CLOSED: 닫힌 상태
-  console.log("room.joinStatus", room.joinStatus);
   return room.joinStatus === 'OPEN';
 };
 

@@ -220,6 +220,28 @@
                     ref="chatContainerRef"
                     @scroll="handleScroll"
                   >
+                    <!-- 더 많은 메시지 로딩 인디케이터 -->
+                    <div v-if="isLoadingMoreMessages" class="load-more-container">
+                      <div class="load-more-content">
+                        <v-progress-circular
+                          indeterminate
+                          color="primary"
+                          size="32"
+                          width="3"
+                          class="load-more-spinner"
+                        ></v-progress-circular>
+                        <p class="load-more-text">과거 메시지를 불러오는 중...</p>
+                      </div>
+                    </div>
+                    
+                    <!-- 더 이상 로드할 메시지가 없을 때 표시 -->
+                    <div v-if="!hasMoreMessages && chatMessages.length > 0" class="no-more-messages">
+                      <div class="no-more-content">
+                        <v-icon size="24" color="grey-lighten-1">mdi-check-circle-outline</v-icon>
+                        <span class="no-more-text">모든 메시지를 불러왔습니다</span>
+                      </div>
+                    </div>
+                    
                     <template v-for="(message, index) in chatMessages" :key="index">
                       <!-- 날짜 구분선 -->
                       <div
@@ -419,6 +441,13 @@ const currentUserRole = ref("MANAGER");
 // 새로운 메시지 표시기 상태
 const showNewMessageIndicator = ref(false);
 
+// 페이징 관련 상태
+const isLoadingMoreMessages = ref(false);
+const hasMoreMessages = ref(true);
+const currentPage = ref(0);
+const pageSize = ref(20);
+const isInitialLoad = ref(true);
+
 // 이미지 모달 관련 상태
 const showImageModal = ref(false);
 const modalImages = ref([]);
@@ -557,51 +586,121 @@ watch(selectedUser, async (newUser, oldUser) => {
     unsubscribe(oldUser);
   }
   if (newUser) {
+    // 채팅 상태 초기화
     chatMessages.value = [];
     newMessage.value = "";
     imagePreview.value = [];
     newImages.value = [];
-    showNewMessageIndicator.value = false; // 새로운 메시지 표시기 초기화
-    closeImageModal(); // 이미지 모달도 초기화
-    try {
-      const response = await axios.get(
-        `${process.env.VUE_APP_API_BASE_URL}/manager/chat/history/room/${newUser.roomId}`,
-        {
-          headers: { Authorization: `Bearer ${token.value}` },
-        }
-      );
-      await axios.post(`${process.env.VUE_APP_API_BASE_URL}/manager/chat/${newUser.roomId}/read`);
-      const chatData = getResultData(response);
-      if (Array.isArray(chatData)) {
-        chatMessages.value = chatData.map((msg) => ({
-          senderEmail: msg.senderEmail,
-          senderName: msg.senderName,
-          message: msg.message,
-          timestamp: msg.timestamp,
-          imageUrls: msg.imageUrls || [],
-          receiverEmail: msg.receiverEmail,
-        }));
-      }
-      // 선택된 사용자의 안읽은 메시지 개수 초기화
-      const userIndex = users.value.findIndex(u => u.email === newUser.email);
-      if (userIndex !== -1) {
-        users.value[userIndex].unReadCount = 0;
-      }
-      scrollToBottom();
-      connectWebSocket(newUser.roomId);
-    } catch (error) {
-      console.error("채팅 내역 로딩 실패:", getErrorMessage(error));
-      chatMessages.value = [];
-    }
+    showNewMessageIndicator.value = false;
+    closeImageModal();
+    
+    // 페이징 상태 초기화
+    isLoadingMoreMessages.value = false;
+    hasMoreMessages.value = true;
+    currentPage.value = 0;
+    isInitialLoad.value = true;
+    
+    await loadChatHistory(newUser, false);
+    connectWebSocket(newUser.roomId);
   } else {
     chatMessages.value = [];
-    showNewMessageIndicator.value = false; // 새로운 메시지 표시기 초기화
-    closeImageModal(); // 이미지 모달도 초기화
+    showNewMessageIndicator.value = false;
+    closeImageModal();
   }
 });
 
 // --- 헬퍼 함수 ---
 const getRoleChipColor = (role) => (role === "MANAGER" ? "red" : "green");
+
+// 채팅 내역 로딩 함수 (페이징 지원)
+const loadChatHistory = async (user, isLoadMore = false) => {
+  if (isLoadMore) {
+    isLoadingMoreMessages.value = true;
+  } else {
+    isInitialLoad.value = true;
+    currentPage.value = 0;
+    hasMoreMessages.value = true;
+  }
+
+  try {
+    const url = `${process.env.VUE_APP_API_BASE_URL}/manager/chat/history/room/${user.roomId}?page=${currentPage.value}&size=${pageSize.value}`;
+    const response = await axios.get(url, {
+      headers: { Authorization: `Bearer ${token.value}` },
+    });
+    
+    // Page<ChatMessageDto> 구조에서 content 필드 추출
+    const pageData = getResultData(response);
+    const chatData = pageData?.content || [];
+    
+    // 배열이 아닌 경우 빈 배열로 처리
+    const safeNewMessages = Array.isArray(chatData) ? chatData : [];
+    
+    if (isLoadMore) {
+      // 더 많은 메시지를 로드할 때는 기존 메시지 앞에 추가
+      const newMessages = safeNewMessages.map((msg) => ({
+        senderEmail: msg.senderEmail,
+        senderName: msg.senderName,
+        message: msg.message,
+        timestamp: msg.timestamp,
+        imageUrls: msg.imageUrls || [],
+        receiverEmail: msg.receiverEmail,
+      }));
+      chatMessages.value = [...newMessages, ...chatMessages.value];
+    } else {
+      // 초기 로드일 때는 메시지 교체
+      chatMessages.value = safeNewMessages.map((msg) => ({
+        senderEmail: msg.senderEmail,
+        senderName: msg.senderName,
+        message: msg.message,
+        timestamp: msg.timestamp,
+        imageUrls: msg.imageUrls || [],
+        receiverEmail: msg.receiverEmail,
+      }));
+      
+      // 읽음 처리
+      try {
+        await axios.post(`${process.env.VUE_APP_API_BASE_URL}/manager/chat/${user.roomId}/read`);
+      } catch (readError) {
+        console.warn('읽음 처리 실패:', readError);
+      }
+      
+      // 선택된 사용자의 안읽은 메시지 개수 초기화
+      const userIndex = users.value.findIndex(u => u.email === user.email);
+      if (userIndex !== -1) {
+        users.value[userIndex].unReadCount = 0;
+      }
+    }
+
+    // 더 이상 로드할 메시지가 없는지 확인
+    hasMoreMessages.value = !pageData?.last;
+    
+    if (isLoadMore) {
+      currentPage.value++;
+    } else {
+      currentPage.value = 1; // 초기 로드 후 다음 페이지는 1부터
+      scrollToBottom();
+    }
+  } catch (error) {
+    console.error("채팅 내역 로딩 실패:", getErrorMessage(error));
+    
+    // 에러 발생 시 빈 배열로 설정 (초기 로드인 경우만)
+    if (!isLoadMore) {
+      chatMessages.value = [];
+    }
+  } finally {
+    isLoadingMoreMessages.value = false;
+    isInitialLoad.value = false;
+  }
+};
+
+// 더 많은 메시지 로드 함수
+const loadMoreMessages = async () => {
+  if (!selectedUser.value || isLoadingMoreMessages.value || !hasMoreMessages.value) {
+    return;
+  }
+  
+  await loadChatHistory(selectedUser.value, true);
+};
 
 // 이미지 로딩 오류 처리
 const handleImageError = (user) => {
@@ -823,13 +922,25 @@ const sendMessage = async () => {
   }
 };
 
-const handleScroll = () => {
+const handleScroll = async () => {
   const el = chatContainerRef.value;
   if (!el) return;
   
   // 사용자가 수동으로 맨 아래로 스크롤하면 새 메시지 표시기를 숨깁니다.
   if (el.scrollHeight - el.scrollTop - el.clientHeight < 1) {
     showNewMessageIndicator.value = false;
+  }
+  
+  // 위로 스크롤하여 과거 메시지 로드
+  if (el.scrollTop < 200 && hasMoreMessages.value && !isLoadingMoreMessages.value && !isInitialLoad.value) {
+    const previousScrollHeight = el.scrollHeight;
+    await loadMoreMessages();
+    
+    // 스크롤 위치 유지 (새로 로드된 메시지로 인한 높이 변화 보정)
+    nextTick(() => {
+      const newScrollHeight = el.scrollHeight;
+      el.scrollTop = newScrollHeight - previousScrollHeight;
+    });
   }
 };
 
@@ -1307,6 +1418,69 @@ onUnmounted(() => {
   z-index: 0;
 }
 
+/* 더 많은 메시지 로딩 인디케이터 스타일 */
+.load-more-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  margin: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 1;
+}
+
+.load-more-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.load-more-spinner {
+  margin: 0;
+}
+
+.load-more-text {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* 더 이상 로드할 메시지가 없을 때 스타일 */
+.no-more-messages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  margin: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.no-more-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.no-more-text {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+}
+
 .chat-subtitle {
   font-size: 14px;
   color: #666;
@@ -1753,6 +1927,27 @@ onUnmounted(() => {
 .user-list-container .v-list-item__append,
 .guide-list .v-list-item__append {
   margin-left: 16px !important;
+}
+
+/* 다크모드 스타일 */
+@media (prefers-color-scheme: dark) {
+  .load-more-container {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .load-more-text {
+    color: #9ca3af;
+  }
+  
+  .no-more-content {
+    background: rgba(30, 41, 59, 0.6);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .no-more-text {
+    color: #6b7280;
+  }
 }
 
 /* 이미지 클릭 가능 스타일 */
