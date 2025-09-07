@@ -13,7 +13,7 @@
         <v-spacer></v-spacer>
         <ParticipantsModal
           v-model="showParticipantsModal"
-          v-if="selectedRoom?.roomName !== '관리자와의 채팅'"
+          v-if="selectedRoomType !== 'manager'"
           :room-id="selectedRoom?.roomId"
           :room-type="selectedRoomType"
           :room-name="selectedRoom?.roomName"
@@ -26,13 +26,6 @@
               variant="text" 
               :title="`참여자 목록 (${participantCount}명)`"
             >
-              <v-badge 
-                :content="participantCount" 
-                color="primary" 
-                :model-value="participantCount > 0"
-              >
-                <v-icon>mdi-account-group</v-icon>
-              </v-badge>
             </v-btn>
           </template>
         </ParticipantsModal>

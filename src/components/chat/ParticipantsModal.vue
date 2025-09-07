@@ -189,90 +189,33 @@ const getAvatarColor = (index) => {
   return colors[index % colors.length];
 };
 
-// API 호출 함수
+// API 호출 함수 - 공동구매 채팅방만 처리
 const fetchParticipants = async () => {
-  if (!props.roomId || !props.roomType) return;
+  if (!props.roomId || !props.roomType || props.roomType !== 'purchase') return;
 
   isLoading.value = true;
   error.value = null;
   participants.value = [];
 
   try {
-    let response;
-    if (props.roomType === 'manager') {
-      // 관리자 채팅방의 경우 - 더미 데이터 사용
-      participants.value = [
-        {
-          name: "관리자",
-          email: "admin@smartfridge.com",
-          isManager: true,
-          isOnline: true,
-          profileImage: null
-        },
-        {
-          name: localStorage.getItem("name") || "나",
-          email: localStorage.getItem("email") || "user@example.com",
-          isCreator: false,
-          isOnline: true,
-          profileImage: null
-        }
-      ];
-    } else {
-      // 공동구매 채팅방의 경우 - 채팅방 정보 API에서 참여자 정보 추출
-      response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/purchase/chat/info/${props.roomId}`);
-      const roomInfo = getResultData(response);
-      
-      if (roomInfo) {
-        // 방장 정보 추가
-        participants.value = [
-          {
-            name: roomInfo.userName,
-            email: roomInfo.userEmail || "creator@example.com",
-            isCreator: true,
-            isOnline: Math.random() > 0.5,
-            profileImage: null
-          }
-        ];
-        
-        // 현재 사용자가 방장이 아닌 경우 추가
-        const currentUserEmail = localStorage.getItem("email");
-        if (currentUserEmail && currentUserEmail !== roomInfo.userEmail) {
-          participants.value.push({
-            name: localStorage.getItem("name") || "나",
-            email: currentUserEmail,
-            isCreator: false,
-            isOnline: true,
-            profileImage: null
-          });
-        }
-        
-        // 나머지 참여자들을 위한 더미 데이터
-        const additionalParticipants = Math.max(0, roomInfo.currentParticipants - participants.value.length);
-        for (let i = 0; i < additionalParticipants; i++) {
-          participants.value.push({
-            name: `참여자 ${i + 1}`,
-            email: `participant${i + 1}@example.com`,
-            isCreator: false,
-            isOnline: Math.random() > 0.3,
-            profileImage: null
-          });
-        }
-      }
+    // 공동구매 채팅방의 경우 - 채팅방 정보 API에서 참여자 정보 추출
+    const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/purchase/chat/participants/${props.roomId}`);
+    const participantsData = getResultData(response);
+    console.log("participantsData", participantsData);
+
+    if (participantsData) {
+      // map을 사용해 participantsData 배열을 새로운 형식의 배열로 변환한 뒤 한 번에 할당
+      participants.value = participantsData.map(participant => ({
+        name: participant.memberName,
+        email: participant.memberEmail,
+        isCreator: participant.isCreator,
+        isOnline: participant.isOnline,
+        profileImage: participant.profileImage
+      }));
     }
   } catch (err) {
     console.error("참여자 목록 조회 실패:", err);
     error.value = "참여자 목록을 불러오는 데 실패했습니다.";
-    
-    // API 호출 실패 시 최소한의 더미 데이터 사용
-    participants.value = [
-      {
-        name: localStorage.getItem("name") || "나",
-        email: localStorage.getItem("email") || "user@example.com",
-        isCreator: false,
-        isOnline: true,
-        profileImage: null
-      }
-    ];
   } finally {
     isLoading.value = false;
   }
