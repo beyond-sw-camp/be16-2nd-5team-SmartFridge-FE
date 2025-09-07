@@ -143,27 +143,27 @@
                 <!-- 하단 줄: 작성자, 참여자 수 -->
                 <div class="room-footer">
                   <div class="room-author">
-                    <span v-if="!room.isCreator" class="author-text">
+                    <span class="author-text">
                       {{ room.userName }}
                     </span>
                   </div>
                   
                   <div class="participants-info">
                     <v-chip
-                      :color="isRoomFull(room) ? 'error' : 'success'"
+                      :color="!isRoomOpen(room) ? 'error' : 'success'"
                       variant="outlined"
                       size="small"
                       class="participants-chip"
                     >
                       <v-icon 
-                        :icon="isRoomFull(room) ? 'mdi-account-off' : 'mdi-account-group'" 
+                        :icon="!isRoomOpen(room) ? 'mdi-account-off' : 'mdi-account-group'" 
                         size="14" 
                         class="mr-1"
                       />
                       {{ room.currentParticipants }}/{{ room.maxParticipants }}
                     </v-chip>
                   </div>
-                </div>
+                 </div>
               </div>
 
               <div v-else class="hover-actions">
@@ -211,28 +211,17 @@
               </div>
             </div>
             
-            <!-- 공동구매 채팅방 목록 -->
+            <!-- 공동구매 채팅방 목록 (OPEN 상태만 표시) -->
             <div
-              v-for="room in purchaseRooms"
+              v-for="room in purchaseRooms.filter(room => isRoomOpen(room))"
               :key="room.roomId"
               class="chat-room-card"
               @mouseenter="hoveredRoomId = room.roomId"
               @mouseleave="hoveredRoomId = null"
             >
               <div v-if="hoveredRoomId !== room.roomId" class="room-content">
-                <!-- 상단 줄: 상태, 제목, 참여 상태 -->
+                <!-- 상단 줄: 제목, 참여 상태 -->
                 <div class="room-header">
-                  <div class="room-status-wrapper">
-                    <v-chip
-                      :color="isRoomFull(room) ? 'error' : 'success'"
-                      variant="flat"
-                      size="x-small"
-                      class="room-status-chip"
-                    >
-                      {{ isRoomFull(room) ? 'FULL' : 'OPEN' }}
-                    </v-chip>
-                  </div>
-                  
                   <div class="room-title-section">
                     <h3 class="room-title">
                       {{ room.roomName }}
@@ -255,13 +244,13 @@
                   
                   <div class="room-badges">
                     <v-chip
-                      :color="isRoomFull(room) ? 'error' : 'success'"
+                      :color="getParticipantsChipColor(room)"
                       variant="outlined"
                       size="small"
                       class="participants-chip"
                     >
                       <v-icon 
-                        :icon="isRoomFull(room) ? 'mdi-account-off' : 'mdi-account-group'" 
+                        :icon="getParticipantsIcon(room)" 
                         size="14" 
                         class="mr-1"
                       />
@@ -279,11 +268,11 @@
                   <div class="action-text">참여하기</div>
                 </div>
                 
-                <div v-if="myPurchaseRooms.some(r => r.roomId === room.roomId)" class="participating-status">
-                  <div class="status-icon">
+                <div v-if="myPurchaseRooms.some(r => r.roomId === room.roomId)" class="action-button participating">
+                  <div class="action-icon">
                     <v-icon size="18" color="success">mdi-check-circle</v-icon>
                   </div>
-                  <div class="status-text">이미 참여중입니다</div>
+                  <div class="action-text">이미 참여중입니다</div>
                 </div>
               </div>
             </div>
@@ -380,13 +369,32 @@ const createChatRoom = () => {
   isCreateModalOpen.value = true;
 };
 
-const isRoomFull = (room) => {
-  return room.currentParticipants >= room.maxParticipants;
+const isRoomOpen = (room) => {
+  // room.joinStatus 값에 따라 방의 열림/닫힘 상태 판단
+  // OPEN: 열린 상태, CLOSED: 닫힌 상태
+  console.log("room.joinStatus", room.joinStatus);
+  return room.joinStatus === 'OPEN';
 };
 
-const isRoomOpen = (room) => {
-  // 방이 꽉 차지 않았고, 활성화된 상태면 OPEN
-  return !isRoomFull(room) && room.status !== 'INACTIVE';
+
+// 참여자 수 칩 색상을 반환하는 함수
+const getParticipantsChipColor = (room) => {
+  // 공동구매 탭에서만 참여자 수에 따라 색상 구분
+  if (tab.value === 'groupbuy') {
+    return room.currentParticipants >= room.maxParticipants ? 'error' : 'success';
+  }
+  // 다른 탭에서는 joinStatus에 따라 구분
+  return !isRoomOpen(room) ? 'error' : 'success';
+};
+
+// 참여자 수 칩 아이콘을 반환하는 함수
+const getParticipantsIcon = (room) => {
+  // 공동구매 탭에서만 참여자 수에 따라 아이콘 구분
+  if (tab.value === 'groupbuy') {
+    return room.currentParticipants >= room.maxParticipants ? 'mdi-account-off' : 'mdi-account-group';
+  }
+  // 다른 탭에서는 joinStatus에 따라 구분
+  return !isRoomOpen(room) ? 'mdi-account-off' : 'mdi-account-group';
 };
 
 const selectRoom = (room, roomType) => {
@@ -586,6 +594,17 @@ const handleImageError = () => {
   background: rgba(239, 68, 68, 0.1);
 }
 .action-button.start:hover {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.action-button.participating {
+  cursor: default;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.action-button.participating:hover {
   color: #10b981;
   background: rgba(16, 185, 129, 0.1);
 }
@@ -1017,82 +1036,8 @@ const handleImageError = () => {
   margin: 0 8px;
 }
 
-/* 🎯 참여중 상태 디자인 */
-.participating-status {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  min-height: 60px;
-  flex: 1;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  border: 1px solid rgba(34, 197, 94, 0.2);
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
 
-.participating-status::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
-}
 
-.status-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #22c55e, #16a34a);
-  color: white;
-  margin-bottom: 4px;
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
-  animation: success-pulse 2s infinite;
-}
-
-.status-text {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #15803d;
-  text-align: center;
-  line-height: 1.2;
-}
-
-/* 성공 펄스 애니메이션 */
-@keyframes success-pulse {
-  0%, 100% {
-    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow: 0 4px 16px rgba(34, 197, 94, 0.5);
-    transform: scale(1.05);
-  }
-}
-
-/* 호버 효과 */
-.participating-status:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
-  border-color: rgba(34, 197, 94, 0.4);
-}
-
-.participating-status:hover .status-icon {
-  transform: scale(1.1);
-}
-
-.participating-status:hover .status-text {
-  color: #166534;
-  font-weight: 700;
-}
 
 /* 반응형 디자인 */
 @media (max-width: 768px) {
@@ -1148,19 +1093,6 @@ const handleImageError = () => {
     margin: 0 6px;
   }
   
-  /* 참여중 상태 모바일 */
-  .participating-status {
-    min-height: 50px;
-  }
-  
-  .status-icon {
-    width: 28px;
-    height: 28px;
-  }
-  
-  .status-text {
-    font-size: 0.7rem;
-  }
 }
 
 @media (max-width: 480px) {
@@ -1271,22 +1203,6 @@ const handleImageError = () => {
   }
   
   /* 다크모드 참여중 상태 */
-  .participating-status {
-    background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
-    border-color: rgba(34, 197, 94, 0.3);
-  }
-  
-  .participating-status::before {
-    background: linear-gradient(90deg, #10b981 0%, #059669 100%);
-  }
-  
-  .status-text {
-    color: #6ee7b7;
-  }
-  
-  .participating-status:hover .status-text {
-    color: #a7f3d0;
-  }
 }
 
 /* 관리자 채팅방 특별 스타일 */
@@ -1419,6 +1335,7 @@ const handleImageError = () => {
     color: #fbbf24 !important;
   }
 }
+
 
 /* 프로필 이미지 스타일 */
 .profile-image {

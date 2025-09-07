@@ -48,6 +48,33 @@
 
       <div class="chat-container">
         <v-card-text ref="chatBox" class="flex-grow-1 pa-0 chat-box" @scroll="handleScroll">
+          <!-- 로딩 화면 -->
+          <div v-if="isLoadingMessages" class="loading-container">
+            <div class="loading-content">
+              <v-progress-circular
+                indeterminate
+                color="primary"
+                size="48"
+                width="4"
+                class="loading-spinner"
+              ></v-progress-circular>
+              <p class="loading-text">채팅 내역을 불러오는 중...</p>
+            </div>
+          </div>
+          
+          <!-- 메시지가 없을 때 안내 UI -->
+          <div v-else-if="groupedMessages.length === 0" class="empty-chat-container">
+            <div class="empty-chat-content">
+              <v-icon size="64" color="grey-lighten-1" class="empty-chat-icon">
+                mdi-chat-outline
+              </v-icon>
+              <h3 class="empty-chat-title">채팅을 시작해보세요!</h3>
+              <p class="empty-chat-description">
+                첫 번째 메시지를 작성하여 대화를 시작할 수 있습니다.
+              </p>
+            </div>
+          </div>
+          
           <div v-for="(group, groupIndex) in groupedMessages" :key="groupIndex" class="message-group">
             <!-- 날짜 구분선 -->
             <div class="date-divider">
@@ -166,6 +193,7 @@ const modalStartIndex = ref(0);
 const showParticipantsModal = ref(false);
 const participantCount = ref(0);
 const isCompletingOrder = ref(false);
+const isLoadingMessages = ref(false);
 
 // 방장 여부를 확인하는 computed 속성
 const isRoomCreator = computed(() => {
@@ -327,6 +355,7 @@ const resetChatState = () => {
 };
 
 const loadChatHistory = async (room, roomType) => {
+  isLoadingMessages.value = true;
   try {
     const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/${roomType}/chat/history/${room.roomId}`);
     messages.value = getResultData(response);
@@ -334,6 +363,8 @@ const loadChatHistory = async (room, roomType) => {
     scrollToBottom();
   } catch (error) {
     console.error("채팅 내역 로딩 실패:", error);
+  } finally {
+    isLoadingMessages.value = false;
   }
 };
 
@@ -902,6 +933,91 @@ onUnmounted(() => {
 
 .order-complete-btn.v-btn--loading .v-icon {
   animation: none;
+}
+
+/* 로딩 화면 스타일 */
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 300px;
+  padding: 40px 20px;
+}
+
+.loading-content {
+  text-align: center;
+  max-width: 300px;
+}
+
+.loading-spinner {
+  margin-bottom: 16px;
+}
+
+.loading-text {
+  font-size: 1rem;
+  color: #6b7280;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* 빈 채팅방 안내 UI 스타일 */
+.empty-chat-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 300px;
+  padding: 40px 20px;
+}
+
+.empty-chat-content {
+  text-align: center;
+  max-width: 400px;
+}
+
+.empty-chat-icon {
+  margin-bottom: 24px;
+  opacity: 0.6;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.empty-chat-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.empty-chat-description {
+  font-size: 1rem;
+  color: #6b7280;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* 다크모드에서 로딩 화면 */
+@media (prefers-color-scheme: dark) {
+  .loading-text {
+    color: #9ca3af;
+  }
+}
+
+/* 다크모드에서 빈 채팅방 안내 UI */
+@media (prefers-color-scheme: dark) {
+  .empty-chat-title {
+    color: #f3f4f6;
+  }
+  
+  .empty-chat-description {
+    color: #9ca3af;
+  }
 }
 
 </style>
