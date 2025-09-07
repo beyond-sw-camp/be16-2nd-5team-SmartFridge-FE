@@ -39,179 +39,178 @@
         <v-window-item value="chat">
           <v-list @mouseleave="hoveredRoomId = null">
              <div
-              v-if="managerRoom && managerRoom.isManager===false"
-              @click="selectRoom(managerRoom, 'manager')"
-              class="chat-room-card manager-room"
-              :class="{ active: selectedRoomId === managerRoom.roomId }"
-            >
-              <div class="room-content">
-                <!-- 상단 줄: 관리자 배지, 제목, 읽지 않은 메시지 -->
-                <div class="room-header">
-                  <div class="room-status-wrapper">
-                    <v-chip
-                      color="primary"
-                      variant="flat"
-                      size="x-small"
-                      class="room-status-chip manager-badge"
-                    >
-                      ADMIN
-                    </v-chip>
-                  </div>
-                  
-                  <div class="room-title-section">
-                    <h3 class="room-title">
-                      {{ managerRoom.roomName }}
-                      <v-icon
-                        icon="mdi-shield-account"
-                        size="16"
-                        color="primary"
-                        class="admin-icon"
-                      />
-                    </h3>
-                  </div>
-                  
-                  <div class="room-badges">
-                    <v-chip
-                      v-if="(managerRoom.unReadCount || 0) > 0"
-                      color="error"
-                      variant="elevated"
-                      size="small"
-                      class="unread-badge"
-                    >
-                      {{ managerRoom.unReadCount || 0 }}
-                    </v-chip>
-                  </div>
-                </div>
-                
-                <!-- 하단 줄: 관리자 정보 -->
-                <div class="room-footer">
-                  <div class="room-author">
-                    <span class="author-text admin-text">
-                      {{ managerRoom.userName }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div
-              v-for="room in sortedMyPurchaseRooms"
-              :key="room.roomId"
-              class="chat-room-card"
-              @mouseenter="hoveredRoomId = room.roomId"
-              @mouseleave="hoveredRoomId = null"
-            >
-              <div v-if="hoveredRoomId !== room.roomId" class="room-content">
-                <!-- 상단 줄: 상태, 제목, 읽지 않은 메시지 -->
-                <div class="room-header">
-                  <div class="room-status-wrapper">
-                    <v-chip
-                      :color="isRoomOpen(room) ? 'success' : 'grey-darken-1'"
-                      variant="flat"
-                      size="x-small"
-                      class="room-status-chip"
-                    >
-                      {{ isRoomOpen(room) ? 'OPEN' : 'CLOSE' }}
-                    </v-chip>
-                  </div>
-                  
-                  <div class="room-title-section">
-                    <h3 class="room-title">
-                      {{ room.roomName }}
-                      <v-icon
-                        v-if="room.isCreator"
-                        icon="mdi-crown"
-                        size="16"
-                        color="amber"
-                        class="crown-icon"
-                      />
-                    </h3>
-                  </div>
-                  
-                  <div class="room-badges">
-                    <v-chip
-                      v-if="(room.unReadCount || 0) > 0"
-                      color="error"
-                      variant="elevated"
-                      size="small"
-                      class="unread-badge"
-                    >
-                      {{ room.unReadCount || 0 }}
-                    </v-chip>
-                  </div>
-                </div>
-                
-                <!-- 하단 줄: 작성자, 참여자 수 -->
-                <div class="room-footer">
-                  <div class="room-author">
-                    <span class="author-text">
-                      {{ room.userName }}
-                    </span>
-                  </div>
-                  
-                  <div class="participants-info">
-                    <v-chip
-                      :color="!isRoomOpen(room) ? 'error' : 'success'"
-                      variant="outlined"
-                      size="small"
-                      class="participants-chip"
-                    >
-                      <v-icon 
-                        :icon="!isRoomOpen(room) ? 'mdi-account-off' : 'mdi-account-group'" 
-                        size="14" 
-                        class="mr-1"
-                      />
-                      {{ room.currentParticipants }}/{{ room.maxParticipants }}
-                    </v-chip>
-                  </div>
+               v-if="managerRoom && managerRoom.isManager===false"
+               @click="selectRoom(managerRoom, 'manager')"
+               class="chat-room-card manager-room"
+               :class="{ active: selectedRoomId === managerRoom.roomId }"
+             >
+               <div class="room-content">
+                 <div class="room-header">
+                   <div class="room-status-wrapper">
+                     <v-chip
+                       color="primary"
+                       variant="flat"
+                       size="x-small"
+                       class="room-status-chip manager-badge"
+                     >
+                       ADMIN
+                     </v-chip>
+                   </div>
+                   
+                   <div class="room-title-section">
+                     <h3 class="room-title">
+                       {{ managerRoom.roomName }}
+                       <v-icon
+                         icon="mdi-shield-account"
+                         size="16"
+                         color="primary"
+                         class="admin-icon"
+                       />
+                     </h3>
+                   </div>
+                   
+                   <div class="room-badges">
+                     <v-chip
+                       v-if="(managerRoom.unReadCount || 0) > 0"
+                       color="error"
+                       variant="elevated"
+                       size="small"
+                       class="unread-badge"
+                     >
+                       {{ managerRoom.unReadCount || 0 }}
+                     </v-chip>
+                   </div>
                  </div>
-              </div>
+                 
+                 <div class="room-footer">
+                   <div class="room-author">
+                     <span class="author-text admin-text">
+                       {{ managerRoom.userName }}
+                     </span>
+                   </div>
+                 </div>
+               </div>
+             </div>
+             <div
+               v-for="room in sortedMyPurchaseRooms"
+               :key="room.roomId"
+               class="chat-room-card"
+               @mouseenter="hoveredRoomId = room.roomId"
+               @mouseleave="hoveredRoomId = null"
+             >
+               <div v-if="hoveredRoomId !== room.roomId" class="room-content" @click="startChat(room)">
+                 <div class="room-header">
+                   <div class="room-status-wrapper">
+                     <v-chip
+                       :color="isRoomOpen(room) ? 'success' : 'grey-darken-1'"
+                       variant="flat"
+                       size="x-small"
+                       class="room-status-chip"
+                     >
+                       {{ isRoomOpen(room) ? 'OPEN' : 'CLOSE' }}
+                     </v-chip>
+                   </div>
+                   
+                   <div class="room-title-section">
+                     <h3 class="room-title">
+                       {{ room.roomName }}
+                       <v-icon
+                         v-if="room.isCreator"
+                         icon="mdi-crown"
+                         size="16"
+                         color="amber"
+                         class="crown-icon"
+                       />
+                     </h3>
+                   </div>
+                   
+                   <div class="room-badges">
+                     <v-chip
+                       v-if="(room.unReadCount || 0) > 0"
+                       color="error"
+                       variant="elevated"
+                       size="small"
+                       class="unread-badge"
+                     >
+                       {{ room.unReadCount || 0 }}
+                     </v-chip>
+                   </div>
+                 </div>
+                 
+                 <div class="room-footer">
+                   <div class="room-author">
+                     <span class="author-text">
+                       {{ room.userName }}
+                     </span>
+                   </div>
+                   
+                   <div class="participants-info">
+                     <v-chip
+                       :color="!isRoomOpen(room) ? 'error' : 'success'"
+                       variant="outlined"
+                       size="small"
+                       class="participants-chip"
+                     >
+                       <v-icon 
+                         :icon="!isRoomOpen(room) ? 'mdi-account-off' : 'mdi-account-group'" 
+                         size="14" 
+                         class="mr-1"
+                       />
+                       {{ room.currentParticipants }}/{{ room.maxParticipants }}
+                     </v-chip>
+                   </div>
+                  </div>
+               </div>
 
-              <div v-else class="hover-actions">
-                <div class="action-button info" @click.stop="viewRoomInfo(room, true)">
-                  <div class="action-icon">
-                    <v-icon size="18">mdi-information-outline</v-icon>
-                  </div>
-                  <div class="action-text">정보 보기</div>
-                </div>
-                
-                <div class="action-divider"></div>
-                
-                <div class="action-button start" @click.stop="startChat(room)">
-                  <div class="action-icon">
-                    <v-icon size="18">mdi-login-variant</v-icon>
-                  </div>
-                  <div class="action-text">참여하기</div>
-                </div>
-                
-                <div class="action-divider"></div>
-                
-                <div class="action-button leave" @click.stop="leaveRoom(room)">
-                  <div class="action-icon">
-                    <v-icon size="18">mdi-exit-to-app</v-icon>
-                  </div>
-                  <div class="action-text">나가기</div>
-                </div>
-              </div>
-            </div>
-          </v-list>
+               <div v-else class="hover-actions">
+                 <div class="action-button info" @click.stop="viewRoomInfo(room, true)">
+                   <div class="action-icon">
+                     <v-icon size="18">mdi-information-outline</v-icon>
+                   </div>
+                   <div class="action-text">정보 보기</div>
+                 </div>
+                 
+                 <div class="action-divider"></div>
+                 
+                 <div class="action-button start" @click.stop="startChat(room)">
+                   <div class="action-icon">
+                     <v-icon size="18">mdi-login-variant</v-icon>
+                   </div>
+                   <div class="action-text">참여하기</div>
+                 </div>
+                 
+                 <div class="action-divider"></div>
+                 
+                 <div class="action-button leave" @click.stop="leaveRoom(room)">
+                   <div class="action-icon">
+                     <v-icon size="18">mdi-exit-to-app</v-icon>
+                   </div>
+                   <div class="action-text">나가기</div>
+                 </div>
+               </div>
+             </div>
+           </v-list>
         </v-window-item>
 
         <v-window-item value="groupbuy">
           <v-list @mouseleave="hoveredRoomId = null">
-            <!-- 공동구매 생성 버튼 -->
-            <div
-              class="chat-room-card creation-card"
-              @click="createChatRoom()"
-            >
-              <div class="room-content">
-                <div class="creation-content">
-                  <v-icon icon="mdi-plus-circle-outline" size="20" class="creation-icon"></v-icon>
-                  <span class="creation-text">공동 구매 하기</span>
+            
+            <div class="unified-action-bar-container">
+              <div class="unified-action-bar">
+                <div class="action-segment create-segment" @click="createChatRoom()">
+                  <v-icon class="action-segment-icon">mdi-plus-box-outline</v-icon>
+                  <span class="action-segment-text">공동 구매 생성</span>
+                </div>
+
+                <div class="action-segment-divider"></div>
+
+                <div class="action-segment refresh-segment" @click="refreshPurchaseRooms()">
+                  <v-icon class="action-segment-icon">mdi-refresh</v-icon>
+                  <span class="action-segment-text">새로고침</span>
                 </div>
               </div>
             </div>
             
-            <!-- 공동구매 채팅방 목록 (OPEN 상태만 표시) -->
             <div
               v-for="room in purchaseRooms.filter(room => isRoomOpen(room))"
               :key="room.roomId"
@@ -220,7 +219,6 @@
               @mouseleave="hoveredRoomId = null"
             >
               <div v-if="hoveredRoomId !== room.roomId" class="room-content">
-                <!-- 상단 줄: 제목, 참여 상태 -->
                 <div class="room-header">
                   <div class="room-title-section">
                     <h3 class="room-title">
@@ -281,18 +279,17 @@
       </v-window>
     </v-card>
      <RoomInfoModal
-      v-if="selectedRoomIdForModal"
-      v-model="isModalOpen"
-      :roomId="selectedRoomIdForModal"
-      :isParticipant="isParticipantforModal"
-    />
-    <CreateRoomModal
-      v-model="isCreateModalOpen"
-      :fridge-id="fridgeId"
-    />
+       v-if="selectedRoomIdForModal"
+       v-model="isModalOpen"
+       :roomId="selectedRoomIdForModal"
+       :isParticipant="isParticipantforModal"
+     />
+     <CreateRoomModal
+       v-model="isCreateModalOpen"
+       :fridge-id="fridgeId"
+     />
   </v-container>
 </template>
-
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import RoomInfoModal from './RoomInfoModal.vue';
@@ -367,6 +364,20 @@ onMounted(async () => {
 // [수정] createChatRoom 함수가 새 모달을 열도록 변경
 const createChatRoom = () => {
   isCreateModalOpen.value = true;
+};
+
+// 공동구매 채팅방 목록 새로고침 함수
+const refreshPurchaseRooms = async () => {
+  isLoading.value = true;
+  try {
+    const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/purchase/chat/list/${fridgeId.value}`);
+    purchaseRooms.value = getResultData(response);
+  } catch (error) {
+    console.error("API 호출 에러:", error);
+    alert(getErrorMessage(error));
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 const isRoomOpen = (room) => {
@@ -1265,39 +1276,133 @@ const handleImageError = () => {
 }
 
 /* 공동구매 생성 버튼 스타일 */
+/* 액션 버튼 컨테이너 */
+.action-buttons-container {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 0 4px;
+}
+
+.action-buttons-container .chat-room-card {
+  flex: 1;
+  margin: 0;
+  min-height: 56px;
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
 .creation-card {
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%) !important;
-  border: 1px solid rgba(14, 165, 233, 0.2) !important;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%) !important;
+  border: 2px solid rgba(59, 130, 246, 0.3) !important;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+  position: relative;
+}
+
+.creation-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.05) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* 새로고침 버튼 */
+.refresh-card {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%) !important;
+  border: 2px solid rgba(34, 197, 94, 0.3) !important;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.1);
+  position: relative;
+}
+
+.refresh-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.05) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .creation-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(14, 165, 233, 0.15);
-  border-color: rgba(14, 165, 233, 0.4) !important;
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 12px 32px rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.5) !important;
+}
+
+.creation-card:hover::before {
+  opacity: 1;
+}
+
+.refresh-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 12px 32px rgba(34, 197, 94, 0.25);
+  border-color: rgba(34, 197, 94, 0.5) !important;
+}
+
+.refresh-card:hover::before {
+  opacity: 1;
 }
 
 .creation-content {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 0;
-  color: #0369a1;
-  font-weight: 600;
-  font-size: 0.9rem;
+  gap: 6px;
+  padding: 12px 8px;
+  color: #1e40af;
+  font-weight: 700;
+  font-size: 0.85rem;
   height: 100%;
+  position: relative;
+  z-index: 1;
 }
 
 .creation-icon {
-  color: #0284c7;
-  filter: drop-shadow(0 1px 2px rgba(14, 165, 233, 0.3));
+  color: #3b82f6;
+  filter: drop-shadow(0 2px 4px rgba(59, 130, 246, 0.3));
+  transition: all 0.3s ease;
 }
 
 .creation-text {
-  color: #0369a1;
-  font-weight: 600;
+  color: #1e40af;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  text-shadow: 0 1px 2px rgba(59, 130, 246, 0.1);
+  transition: all 0.3s ease;
+}
+
+.creation-card:hover .creation-icon {
+  transform: scale(1.1);
+  filter: drop-shadow(0 4px 8px rgba(59, 130, 246, 0.4));
+}
+
+.creation-card:hover .creation-text {
+  color: #1d4ed8;
+  text-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+.refresh-card:hover .creation-icon {
+  transform: scale(1.1) rotate(180deg);
+  filter: drop-shadow(0 4px 8px rgba(34, 197, 94, 0.4));
+}
+
+.refresh-card:hover .creation-text {
+  color: #15803d;
+  text-shadow: 0 2px 4px rgba(34, 197, 94, 0.2);
 }
 
 /* 공동구매 참여 아이콘 */
@@ -1334,6 +1439,30 @@ const handleImageError = () => {
   .creator-text {
     color: #fbbf24 !important;
   }
+  
+  /* 다크모드에서 새로고침 버튼 */
+  .refresh-card {
+    background: linear-gradient(135deg, #064e3b 0%, #065f46 100%) !important;
+    border-color: rgba(34, 197, 94, 0.4) !important;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15) !important;
+  }
+  
+  .refresh-card:hover {
+    border-color: rgba(34, 197, 94, 0.6) !important;
+    box-shadow: 0 12px 32px rgba(34, 197, 94, 0.3) !important;
+  }
+  
+  .refresh-card .creation-icon {
+    color: #4ade80;
+  }
+  
+  .refresh-card .creation-text {
+    color: #6ee7b7;
+  }
+  
+  .refresh-card:hover .creation-text {
+    color: #a7f3d0;
+  }
 }
 
 
@@ -1348,5 +1477,192 @@ const handleImageError = () => {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   font-weight: bold;
+}
+
+.unified-action-bar-container {
+  padding: 10px 10px;
+}
+
+.unified-action-bar {
+  display: flex;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 2px solid rgba(59, 130, 246, 0.1);
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.unified-action-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.02) 0%, rgba(16, 185, 129, 0.02) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.unified-action-bar:hover {
+  box-shadow: 
+    0 12px 32px rgba(0, 0, 0, 0.12),
+    0 4px 8px rgba(0, 0, 0, 0.08);
+  transform: translateY(-3px);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.unified-action-bar:hover::before {
+  opacity: 1;
+}
+
+.action-segment {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 1;
+  border-radius: 18px;
+  margin: 2px;
+}
+
+.action-segment-icon {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.action-segment-text {
+  font-weight: 700;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  letter-spacing: 0.025em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.action-segment-divider {
+  width: 2px;
+  height: 40px;
+  background: linear-gradient(to bottom, 
+    transparent 0%, 
+    rgba(59, 130, 246, 0.2) 20%, 
+    rgba(16, 185, 129, 0.2) 80%, 
+    transparent 100%);
+  margin: 0 4px;
+  border-radius: 1px;
+}
+
+/* 생성 버튼 스타일 */
+.create-segment {
+  color: #1e40af;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%);
+}
+
+.create-segment:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%);
+  transform: scale(1.02);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.2);
+}
+
+.create-segment:hover .action-segment-icon {
+  transform: rotate(-12deg) scale(1.15);
+  filter: drop-shadow(0 4px 8px rgba(59, 130, 246, 0.3));
+}
+
+.create-segment:hover .action-segment-text {
+  color: #1d4ed8;
+  text-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+/* 새로고침 버튼 스타일 */
+.refresh-segment {
+  color: #15803d;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.02) 100%);
+}
+
+.refresh-segment:hover {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.08) 100%);
+  transform: scale(1.02);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.2);
+}
+
+.refresh-segment:hover .action-segment-icon {
+  transform: rotate(180deg) scale(1.15);
+  filter: drop-shadow(0 4px 8px rgba(16, 185, 129, 0.3));
+}
+
+.refresh-segment:hover .action-segment-text {
+  color: #047857;
+  text-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+
+/* 다크모드 대응 */
+@media (prefers-color-scheme: dark) {
+  .unified-action-bar {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    border-color: rgba(59, 130, 246, 0.2);
+    box-shadow: 
+      0 4px 20px rgba(0, 0, 0, 0.3),
+      0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  .unified-action-bar::before {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%);
+  }
+
+  .unified-action-bar:hover {
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: 
+      0 12px 32px rgba(0, 0, 0, 0.4),
+      0 4px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .action-segment-divider {
+    background: linear-gradient(to bottom, 
+      transparent 0%, 
+      rgba(59, 130, 246, 0.3) 20%, 
+      rgba(16, 185, 129, 0.3) 80%, 
+      transparent 100%);
+  }
+
+  .create-segment {
+    color: #93c5fd;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+  }
+
+  .create-segment:hover {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+  }
+
+  .create-segment:hover .action-segment-text {
+    color: #bfdbfe;
+    text-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+  }
+
+  .refresh-segment {
+    color: #86efac;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+  }
+
+  .refresh-segment:hover {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.1) 100%);
+    box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+  }
+
+  .refresh-segment:hover .action-segment-text {
+    color: #bbf7d0;
+    text-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+  }
 }
 </style>
