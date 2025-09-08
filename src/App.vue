@@ -4,18 +4,21 @@
     <v-main>
       <router-view/>
     </v-main>
+    <CommonSnackbar />
   </v-app>
 </template>
 
 <script>
 import SidebarComponent from './components/common/SidebarComponent.vue'
+import CommonSnackbar from './components/common/CommonSnackbar.vue'
 import { useStore } from 'vuex';
 import { onMounted, onUnmounted, watch } from 'vue';
 
 export default {
   name: 'App',
   components: {
-    SidebarComponent
+    SidebarComponent,
+    CommonSnackbar
   },
   computed: {
     isLoginPage() {

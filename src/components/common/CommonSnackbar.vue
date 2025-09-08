@@ -34,7 +34,22 @@ export default {
       }
     }
   },
+  mounted() {
+    // 커스텀 이벤트 리스너 등록
+    window.addEventListener('show-snackbar', this.handleSnackbarEvent);
+  },
+  beforeUnmount() {
+    // 이벤트 리스너 제거
+    window.removeEventListener('show-snackbar', this.handleSnackbarEvent);
+  },
   methods: {
+    /**
+     * 커스텀 이벤트 처리
+     */
+    handleSnackbarEvent(event) {
+      const { message, color, timeout } = event.detail;
+      this.showSnackbar(message, color, timeout);
+    },
     /**
      * Snackbar를 표시하는 메서드
      * @param {string} message - 표시할 메시지
