@@ -432,6 +432,9 @@ const token = ref(localStorage.getItem("accessToken"));
 const senderEmail = ref(localStorage.getItem("email"));
 const senderName = ref(localStorage.getItem("name"));
 
+// 전역 SSE 이벤트 리스너를 위한 참조
+let adminChatListener = null;
+
 // 이미지 관련 상태
 const newImages = ref([]);
 const imagePreview = ref([]);
@@ -492,9 +495,6 @@ const generateDefaultAvatar = (name, size = 48) => {
 // --- API 함수 ---
 const fetchUsers = async () => {
   try {
-    console.log("fetchUsers 함수 시작");
-    console.log("API URL:", `${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId.value}/members`);
-    console.log("토큰 존재 여부:", !!token.value);
     
     const response = await axios.get(
       `${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId.value}/members`,
@@ -502,11 +502,9 @@ const fetchUsers = async () => {
     );
     
     const userData = getResultData(response);
-    console.log("API 응답 데이터:", userData);
     
     users.value = userData.map((user) => {
       const userName = user.memberName || user.nickname || "이름 없음";
-      console.log(`사용자 ${userName}의 프로필 이미지:`, user.memberProfileImage);
       
       // 프로필 이미지 유효성 검사 (올바른 필드명 사용)
       let profileImage = null;
@@ -514,13 +512,10 @@ const fetchUsers = async () => {
         // URL이 유효한지 확인
         if (user.memberProfileImage.startsWith('http') || user.memberProfileImage.startsWith('data:')) {
           profileImage = user.memberProfileImage;
-          console.log(`유효한 프로필 이미지 사용: ${userName}`);
         } else {
-          console.log(`잘못된 프로필 이미지 형식: ${userName} - ${user.memberProfileImage}`);
           profileImage = generateDefaultAvatar(userName);
         }
       } else {
-        console.log(`프로필 이미지 없음, 기본 아바타 생성: ${userName}`);
         profileImage = generateDefaultAvatar(userName);
       }
       
@@ -534,7 +529,6 @@ const fetchUsers = async () => {
         profileImage: profileImage,
       };
     });
-    console.log("unReadCount", users.value[1]?.unReadCount || 0);
   } catch (error) {
     console.error("사용자 목록 조회 실패:", getErrorMessage(error));
   }
@@ -564,20 +558,18 @@ const filteredUsers = computed(() => {
 
 // --- Lifecycle Hooks ---
 onMounted(async () => {
-  console.log("FridgeMemberList 컴포넌트 마운트됨");
-  console.log("현재 fridgeId:", fridgeId.value);
   
-  // 유저관리 페이지 진입 시 ADMIN_CHAT 알림 제거
-  try {
-    await store.dispatch('notification/clearAdminChatNotificationsOnEnter');
-  } catch (error) {
-    console.error('ADMIN_CHAT 알림 제거 실패:', error);
-  }
+  // 유저관리 페이지 진입 시 MANAGER_CHAT 알림 제거하지 않음 (실제 unReadCount 기반으로 배지 관리)
   
   // 사용자 목록 로드
-  console.log("사용자 목록 로드 시작");
   await fetchUsers();
   window.addEventListener('beforeunload', handleBeforeUnload);
+  
+  // 전역 SSE 이벤트 리스너 등록
+  setupAdminChatListener();
+  
+  // 초기 배지 상태 설정
+  updateAdminChatBadge();
 });
 
 // --- Watcher ---
@@ -704,7 +696,6 @@ const loadMoreMessages = async () => {
 
 // 이미지 로딩 오류 처리
 const handleImageError = (user) => {
-  console.log(`프로필 이미지 로딩 실패: ${user.name} - ${user.profileImage}`);
   // 기본 아바타로 변경
   user.profileImage = generateDefaultAvatar(user.name);
 };
@@ -814,7 +805,6 @@ const unsubscribe = (user) => {
     return;
   }
 
-  console.log(`사용자 ${user.name || user.email} 구독 해제 시작`);
   
   try {
     // 1. 먼저 구독 해제
@@ -822,16 +812,13 @@ const unsubscribe = (user) => {
       const id = { roomId: user.roomId, roomType: 'manager' };
       subscription.value.unsubscribe(id);
       subscription.value = null;
-      console.log('구독이 해제되었습니다.');
     }
     
     // 2. 그 다음 연결 해제
     if (stompClient.value?.connected) {
       stompClient.value.disconnect(() => {
-        console.log('WebSocket 연결이 정상적으로 해제되었습니다 (disconnected)');
       });
       stompClient.value = null;
-      console.log('WebSocket 연결 해제 완료');
     }
   } catch (error) {
     console.error('구독 해제 중 오류 발생:', error);
@@ -857,11 +844,6 @@ const uploadImages = async (files) => {
   try {
     const formData = new FormData();
     files.forEach((file) => formData.append("images", file));
-    console.log("📬 FormData에 담긴 내용을 확인합니다:");
-    for (const [key, value] of formData.entries()) {
-      // value가 File 객체인지, 정보(이름, 크기 등)가 올바른지 확인
-      console.log(`${key}:`, value);
-    }
     const response = await axios.post(
       `${process.env.VUE_APP_API_BASE_URL}/manager/chat/room/${selectedUser.value.roomId}/images`,
       formData,
@@ -1024,9 +1006,71 @@ const handleBeforeUnload = () => {
   }
 };
 
+// --- 전역 SSE 이벤트 리스너 관리 ---
+const setupAdminChatListener = () => {
+  // 전역 SSE 이벤트 리스너 등록
+  adminChatListener = (event) => {
+    const notification = event.detail;
+    handleAdminChatNotification(notification);
+  };
+  
+  // 커스텀 이벤트 리스너 등록
+  window.addEventListener('admin-chat-notification', adminChatListener);
+};
+
+const removeAdminChatListener = () => {
+  if (adminChatListener) {
+    window.removeEventListener('admin-chat-notification', adminChatListener);
+    adminChatListener = null;
+  }
+};
+
+// 배지 업데이트 함수
+const updateAdminChatBadge = () => {
+  // 모든 사용자의 unReadCount 확인
+  const hasUnreadMessages = users.value.some(user => (user.unReadCount || 0) > 0);
+  
+  // 배지 상태 업데이트
+  if (hasUnreadMessages) {
+    store.commit('notification/setAdminChatCount', 1);
+  } else {
+    store.commit('notification/setAdminChatCount', 0);
+  }
+  
+};
+
+// MANAGER_CHAT 알림 처리
+const handleAdminChatNotification = async (notification) => {
+  
+  if (notification.type === 'MANAGER_CHAT') {
+    const roomId = notification.roomId || notification.chatRoomId;
+  
+    let userIndex = -1;
+    
+    if (roomId) {
+      userIndex = users.value.findIndex(u => u.roomId === roomId);
+    }
+    
+    if (userIndex !== -1) {
+      users.value[userIndex].unReadCount = (users.value[userIndex].unReadCount || 0) + 1;
+      
+      // 배지 상태 업데이트
+      updateAdminChatBadge();
+    } else {
+      // 사용자를 찾을 수 없는 경우 사용자 목록을 새로 고침하여 최신 unReadCount 가져오기
+      try {
+        await fetchUsers();
+      } catch (error) {
+        console.error('사용자 목록 새로고침 실패:', error);
+      }
+    }
+  }
+};
+
 // --- 생명주기 훅 ---
 onUnmounted(() => {
   disconnectWebSocket();
+  removeAdminChatListener();
   window.removeEventListener('beforeunload', handleBeforeUnload);
 });
 </script>

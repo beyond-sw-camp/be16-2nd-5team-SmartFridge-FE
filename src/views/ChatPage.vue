@@ -41,7 +41,7 @@ const handleRoomSelect = (room, roomType) => {
 
 // 페이지 진입 시 채팅 알림 제거 및 냉장고 ID 확인
 onMounted(() => {
-  store.dispatch('notification/clearChatNotificationsOnEnter');
+  // 페이지 진입 시 알림 카운트를 초기화하지 않음 (배지 유지)
   
   // 현재 냉장고 ID 확인
   const currentFridgeId = store.getters.getCurrentFridgeId;

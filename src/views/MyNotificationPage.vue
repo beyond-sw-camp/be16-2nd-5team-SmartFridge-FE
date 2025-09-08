@@ -39,6 +39,7 @@
           <v-tab value="post" class="notification-tab">게시글</v-tab>
           <v-tab value="comment" class="notification-tab">댓글</v-tab>
           <v-tab value="inquiry-reply" class="notification-tab">문의답변</v-tab>
+          <v-tab value="group-chat" class="notification-tab">공동 구매 채팅</v-tab>
           <v-tab 
             v-if="userType === 'MANAGER'" 
             value="member"
@@ -62,6 +63,7 @@
           'post-border': getNotificationType(notification) === 'post',
           'comment-border': getNotificationType(notification) === 'comment',
           'inquiry-reply-border': getNotificationType(notification) === 'inquiry-reply',
+          'group-chat-border': getNotificationType(notification) === 'group-chat',
           'member-border': getNotificationType(notification) === 'member',
           'other-border': getNotificationType(notification) === 'other'
         }"
@@ -111,6 +113,13 @@
               <v-chip color="purple" size="small" variant="outlined" class="post-chip">
                 <v-icon size="16" class="mr-1">mdi-bullhorn</v-icon>
                 새로운 공지
+              </v-chip>
+            </div>
+
+            <div v-if="getNotificationType(notification) === 'group-chat'" class="group-chat-info">
+              <v-chip color="teal" size="small" variant="outlined" class="group-chat-chip">
+                <v-icon size="16" class="mr-1">mdi-chat</v-icon>
+                공동 구매 채팅
               </v-chip>
             </div>
 
@@ -283,7 +292,8 @@ const filterByTab = (tab) => {
   else if (tab === "expiration") category = "EXPIRATION_IMMINENT";
   else if (tab === "post") category = "NEW_ANNOUNCEMENT";
   else if (tab === "comment") category = "NEW_COMMENT";
-  else if (tab === "inquiry-reply") category = "INQUIRY_REPLY,NEW_INQUIRY";
+  else if (tab === "inquiry-reply") category = "ADMIN_REPLY";
+  else if (tab === "group-chat") category = "ROOM_FULL,ROOM_CLOSED";
   else if (tab === "member") category = "NEW_MEMBER";
   selectedCategory.value = category;
   resetPagination();
@@ -296,8 +306,10 @@ const getNotificationType = (notification) => {
   if (notification.type === "NEW_ANNOUNCEMENT") return "post";
   if (notification.type === "NEW_COMMENT") return "comment";
   if (notification.type === "INQUIRY_REPLY") return "inquiry-reply";
+  if (notification.type === "ADMIN_REPLY") return "inquiry-reply";
   if (notification.type === "NEW_INQUIRY") return "inquiry-reply";
   if (notification.type === "NEW_MEMBER") return "member";
+  if (notification.type === "ROOM_FULL" || notification.type === "ROOM_CLOSED") return "group-chat";
   return "other";
 };
 
@@ -307,6 +319,7 @@ const getNotificationText = (notification) => {
   if (notification.type === "NEW_ANNOUNCEMENT") return `${notification.content || '새로운 공지사항'}`;
   if (notification.type === "NEW_COMMENT") return `${notification.content || '새로운 댓글'}`;
   if (notification.type === "INQUIRY_REPLY") return `${notification.content || '새로운 문의 답변'}`;
+  if (notification.type === "ADMIN_REPLY") return `${notification.content || '새로운 문의 답변'}`;
   if (notification.type === "NEW_INQUIRY") return `${notification.content || '새로운 문의'}`;
   if (notification.type === "NEW_MEMBER") return `${notification.content || '새로운 멤버'}`;
   return notification.content || '새로운 알림이 있습니다';
@@ -338,6 +351,9 @@ const formatTimeAgo = (dateStr) => {
 };
 
 const goToDetail = (notification) => {
+  // 클릭 시 개별 읽음 처리 (서버 반영 + 로컬 즉시 반영)
+  markAsRead(notification);
+
   const type = notification?.type;
   const extractPostId = (n) => (
     n?.targetId ?? n?.postId ?? n?.announceId ?? n?.announcementId ?? n?.boardId ?? n?.post?.id ?? n?.target?.id ?? null
@@ -354,7 +370,7 @@ const goToDetail = (notification) => {
     return;
   }
 
-  if (type === 'INQUIRY_REPLY' || type === 'NEW_INQUIRY') {
+  if (type === 'ADMIN_REPLY' || type === 'INQUIRY_REPLY' || type === 'NEW_INQUIRY') {
     router.push('/inquiry');
     return;
   }
@@ -384,6 +400,24 @@ const goToDetail = (notification) => {
   if (notification.targetType === 'FOOD') {
     router.push('/fridge/food/shared');
     return;
+  }
+};
+
+// 단건 읽음 처리 함수
+const markAsRead = async (notification) => {
+  try {
+    if (!notification || !notification.id) return;
+    // 로컬 즉시 반영 (UI 반응성 보장)
+    notification.read = true;
+    notification.isRead = true;
+    // 서버 반영
+    await axios.patch(
+      `${process.env.VUE_APP_API_BASE_URL}/fridge/${fridgeId.value}/notification/isRead`,
+      [{ notificationId: notification.id }]
+    );
+  } catch (error) {
+    // 실패하더라도 네비게이션은 진행하므로 조용히 로깅만
+    console.error('단건 읽음 처리 실패:', error);
   }
 };
 
@@ -438,7 +472,8 @@ const readAll = async () => {
 const sortedNotifications = computed(() => {
   let filteredNotifications = notificationList.value;
   if (selectedCategory.value !== "ALL") {
-    filteredNotifications = filteredNotifications.filter(n => n.type === selectedCategory.value);
+    const types = new Set(selectedCategory.value.split(',').map(t => t.trim()));
+    filteredNotifications = filteredNotifications.filter(n => types.has(n.type));
   }
   const unreadNotifications = filteredNotifications.filter(n => !n.read);
   const readNotifications = filteredNotifications.filter(n => n.read);
@@ -620,6 +655,10 @@ onBeforeUnmount(() => {
   border-left-color: #4285f4;
 }
 
+.notification-item.group-chat-border {
+  border-left-color: #009688;
+}
+
 .notification-item.qa-border {
   border-left-color: #6f42c1;
 }
@@ -766,6 +805,7 @@ onBeforeUnmount(() => {
 .comment-chip,
 .inquiry-reply-chip,
 .post-chip,
+.group-chat-chip,
 .member-chip {
   font-size: 0.75rem;
   font-weight: 500;
@@ -803,6 +843,12 @@ onBeforeUnmount(() => {
   border-color: #9c27b0;
   color: #6a1b9a;
   background: rgba(156, 39, 176, 0.1);
+}
+
+.group-chat-chip {
+  border-color: #009688;
+  color: #00695c;
+  background: rgba(0, 150, 136, 0.1);
 }
 
 .member-chip {

@@ -371,7 +371,7 @@ const handleNotificationClick = async (notification) => {
     return;
   }
 
-  if (type === 'INQUIRY_REPLY' || type === 'NEW_INQUIRY') {
+  if (type === 'ADMIN_REPLY') {
     router.push('/inquiry');
     showNotificationModal.value = false;
     return;
@@ -437,7 +437,6 @@ const getNotificationTypeText = (type) => {
     case 'EXPIRATION_IMMINENT': return '유통기한 임박';
     case 'NEW_ANNOUNCEMENT': return '새로운 공지';
     case 'NEW_COMMENT': return '새로운 댓글';
-    case 'NEW_INQUIRY': return '새로운 문의';
     case 'NEW_MEMBER': return '새로운 멤버';
     default: return '알림';
   }
@@ -451,7 +450,6 @@ const getNotificationIcon = (type) => {
     case 'EXPIRATION_IMMINENT': return 'mdi-clock-alert';
     case 'NEW_ANNOUNCEMENT': return 'mdi-bullhorn';
     case 'NEW_COMMENT': return 'mdi-comment';
-    case 'NEW_INQUIRY': return 'mdi-help-circle';
     case 'NEW_MEMBER': return 'mdi-account-plus';
     default: return 'mdi-bell';
   }
@@ -465,7 +463,6 @@ const getNotificationColor = (type) => {
     case 'EXPIRATION_IMMINENT': return 'red';
     case 'NEW_ANNOUNCEMENT': return 'purple';
     case 'NEW_COMMENT': return 'orange';
-    case 'NEW_INQUIRY': return 'indigo';
     case 'NEW_MEMBER': return 'teal';
     default: return 'grey';
   }

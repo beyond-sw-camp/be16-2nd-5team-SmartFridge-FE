@@ -291,7 +291,7 @@
   </v-container>
 </template>
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import RoomInfoModal from './RoomInfoModal.vue';
 import axios from 'axios';
 import { getErrorMessage, getFridgeId, getResultData } from '@/utils/commonDataHandler';
@@ -320,6 +320,9 @@ const purchaseRooms = ref([]);     // 공동구매 채팅방
 const isLoading = ref(true); // 1. 로딩 상태를 관리할 ref 추가 (초기값 true)
 const fridgeId = computed(() => getFridgeId(store));
 
+const myEmail = ref(localStorage.getItem('email'));
+let isRefreshingUnread = false;
+
 // 닫힌 채팅방을 하단에 위치시키는 computed 속성
 const sortedMyPurchaseRooms = computed(() => {
   return [...myPurchaseRooms.value].sort((a, b) => {
@@ -341,6 +344,10 @@ onMounted(async () => {
     const [first, ...rest] = allRooms;
     managerRoom.value = first;
     myPurchaseRooms.value = rest;
+
+    // 배지 동기화: GROUP_CHAT만 관리 (MANAGER_CHAT은 FridgeMemberList에서 별도 관리)
+    const groupHasUnread = rest?.some(r => (r.unReadCount || 0) > 0);
+    store.commit('notification/setGroupChatCount', groupHasUnread ? 1 : 0);
   } catch (error) {
     console.error("API 호출 에러:", error);
     alert(getErrorMessage(error));
@@ -359,6 +366,13 @@ onMounted(async () => {
     // 2. API 호출이 성공하든 실패하든, 마지막에는 로딩 상태를 false로 변경
     isLoading.value = false;
   }
+
+  // 전역 SSE로부터 전달되는 실시간 알림 수신 시작
+  window.addEventListener('realtime-notification', handleRealtimeNotification);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('realtime-notification', handleRealtimeNotification);
 });
 
 // [수정] createChatRoom 함수가 새 모달을 열도록 변경
@@ -408,8 +422,7 @@ const getParticipantsIcon = (room) => {
 };
 
 const selectRoom = (room, roomType) => {
-  selectedRoomId.value = room.id;
-  
+  selectedRoomId.value = room.roomId;
   // isCreator와 isOpen 정보를 room 객체에 추가
   const roomWithInfo = {
     ...room,
@@ -417,15 +430,18 @@ const selectRoom = (room, roomType) => {
     isOpen: isRoomOpen(room)
   };
   
-  console.log('selectRoom:', {
-    room,
-    roomType,
-    isCreator: room.isCreator,
-    isOpen: isRoomOpen(room),
-    roomWithInfo
-  });
-  
   emit('select-room', roomWithInfo, roomType);
+  selectedRoomId.value = room.roomId;
+  emit('select-room', room, roomType);
+  // 선택 시 해당 방의 미읽음 카운트 초기화 (GROUP_CHAT만, ADMIN_CHAT은 FridgeMemberList에서 관리)
+  if (roomType !== 'manager') {
+    const target = myPurchaseRooms.value.find(r => r.roomId === room.roomId);
+    if (target) target.unReadCount = 0;
+  }
+
+  // 배지 동기화: GROUP_CHAT만 관리 (ADMIN_CHAT은 FridgeMemberList에서 별도 관리)
+  const groupHasUnread = myPurchaseRooms.value?.some(r => (r.unReadCount || 0) > 0);
+  store.commit('notification/setGroupChatCount', groupHasUnread ? 1 : 0);
 };
 
 const startChat = (room) => {
@@ -458,6 +474,75 @@ const handleImageError = () => {
   console.log('프로필 이미지 로딩 실패');
   // 이미지 로딩 실패 시 fallback으로 사용자 이름 첫 글자 표시
 };
+
+// ---------------- 실시간 알림 처리 (전역 SSE 이벤트) ----------------
+function extractRoomIdFromNotification(n) {
+  return n?.roomId ?? n?.chatRoomId ?? n?.room?.id ?? n?.relatedData?.roomId ?? null;
+}
+
+function handleRealtimeNotification(evt) {
+  const n = evt?.detail;
+  if (!n) return;
+  // 내 메시지는 무시
+  if (n.senderEmail && n.senderEmail === myEmail.value) return;
+  const rid = extractRoomIdFromNotification(n);
+  const isChatType = n.type === 'ADMIN_CHAT' || n.type === 'GROUP_CHAT' || n.type === 'ROOM_FULL';
+  if (!isChatType) return;
+
+  // 방 ID가 있으면 해당 방만 증분
+  if (rid) {
+    // 현재 열려있는 방이면 증가하지 않음
+    if (selectedRoomId.value === rid) return;
+
+    if (n.type === 'ADMIN_CHAT') {
+      // ADMIN_CHAT은 FridgeMemberList에서 관리하므로 여기서는 처리하지 않음
+      return;
+    }
+
+    // GROUP_CHAT / ROOM_FULL
+    const target = myPurchaseRooms.value.find(r => r.roomId === rid);
+    if (target) {
+      target.unReadCount = (target.unReadCount || 0) + 1;
+      return;
+    }
+  }
+
+  // 방 ID를 알 수 없거나 목록에 없다면 전체 카운트를 서버에서 동기화
+  refreshUnreadCounts();
+
+  // 배지도 함께 동기화: GROUP_CHAT만 관리 (ADMIN_CHAT은 FridgeMemberList에서 별도 관리)
+  const groupHasUnread = myPurchaseRooms.value?.some(r => (r.unReadCount || 0) > 0);
+  store.commit('notification/setGroupChatCount', groupHasUnread ? 1 : 0);
+}
+
+async function refreshUnreadCounts() {
+  if (isRefreshingUnread) return;
+  isRefreshingUnread = true;
+  try {
+    const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/chat/my/rooms/${fridgeId.value}`);
+    const allRooms = getResultData(response) || [];
+    if (!Array.isArray(allRooms) || allRooms.length === 0) return;
+    const [first, ...rest] = allRooms;
+    // manager
+    if (first?.roomId && managerRoom.value?.roomId === first.roomId) {
+      managerRoom.value.unReadCount = first.unReadCount || 0;
+    }
+    // purchase rooms map
+    const map = new Map(rest.map(r => [r.roomId, r]));
+    myPurchaseRooms.value.forEach((room) => {
+      const found = map.get(room.roomId);
+      if (found) room.unReadCount = found.unReadCount || 0;
+    });
+
+    // 배지 동기화: GROUP_CHAT만 관리 (MANAGER_CHAT은 FridgeMemberList에서 별도 관리)
+    const groupHasUnread = rest?.some(r => (r.unReadCount || 0) > 0);
+    store.commit('notification/setGroupChatCount', groupHasUnread ? 1 : 0);
+  } catch (e) {
+    // 네트워크 오류는 조용히 무시
+  } finally {
+    isRefreshingUnread = false;
+  }
+}
 </script>
 
 <style scoped>

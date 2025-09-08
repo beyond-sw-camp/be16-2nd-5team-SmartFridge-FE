@@ -46,11 +46,17 @@ export default {
       unansweredCount: 0,
       userCount: 0,
       newNotificationCount: 0,
+      unreadNotificationCount: 0,
       loading: true
     }
   },
   mounted() {
     this.loadDashboardData();
+    this.loadUnreadNotificationCount();
+    this.setupNotificationListener();
+  },
+  beforeUnmount() {
+    this.removeNotificationListener();
   },
   methods: {
     async loadDashboardData() {
@@ -80,7 +86,47 @@ export default {
       localStorage.clear();
       this.$store.dispatch('user/logout');
       this.$router.push('/');
-    }
+    },
+
+    // 읽지 않은 알림 개수 로드
+    async loadUnreadNotificationCount() {
+      try {
+        const response = await axios.get(`${process.env.VUE_APP_API_BASE_URL}/admin/notification/count`);
+        if (response.data.status_code === 200) {
+          this.unreadNotificationCount = response.data.result.unreadCount || 0;
+        }
+      } catch (error) {
+        console.error('읽지 않은 알림 개수 로드 실패:', error);
+      }
+    },
+
+    // 전역 SSE 이벤트 리스너 설정
+    setupNotificationListener() {
+      this.notificationListener = (event) => {
+        const notification = event.detail;
+        this.handleNewNotification(notification);
+      };
+      window.addEventListener('realtime-notification', this.notificationListener);
+    },
+
+    // 전역 SSE 이벤트 리스너 제거
+    removeNotificationListener() {
+      if (this.notificationListener) {
+        window.removeEventListener('realtime-notification', this.notificationListener);
+        this.notificationListener = null;
+      }
+    },
+
+    // 새 알림 처리
+    handleNewNotification(notification) {
+      if (notification.type === 'NEW_INQUIRY') {
+        // 실시간 카운트 업데이트
+        this.inquiryCount++;
+        this.unansweredCount++;
+        this.newNotificationCount++;
+        this.unreadNotificationCount++;
+      }
+    },
   }
 }
 </script>

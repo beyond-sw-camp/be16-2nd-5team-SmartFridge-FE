@@ -155,6 +155,11 @@ const fetchUserType = async (fridgeId) => {
 
 // 컴포넌트 마운트 시 사용자 정보 로드 및 냉장고 ID 확인
 onMounted(async () => {
+  // 배지 카운트 복원 (사이드바가 재마운트될 때도 유지)
+  try {
+    await store.dispatch('notification/hydrateTypeCounts');
+  } catch (e) { console.warn('hydrateTypeCounts 복원 실패:', e); }
+
   const token = localStorage.getItem('accessToken');
   if (token && !userInfo.value) {
     try {
@@ -176,7 +181,7 @@ onMounted(async () => {
 const menuItems = computed(() => {
   const inquiryBadgeCount = store.getters['notification/inquiryBadgeCount'];
   const chatBadgeCount = store.getters['notification/chatBadgeCount'];
-  const adminChatCount = store.getters['notification/typeCounts']?.ADMIN_CHAT || 0;
+  const adminChatCount = store.getters['notification/typeCounts']?.MANAGER_CHAT || 0;
 
   const fridgeInfo = store.getters.getCurrentFridgeInfo;
   
