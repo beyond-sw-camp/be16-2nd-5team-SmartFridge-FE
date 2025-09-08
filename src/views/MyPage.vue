@@ -627,9 +627,6 @@ export default {
       try {
         const token = localStorage.getItem('accessToken')
         
-        // 백엔드 API가 구현되지 않았을 경우를 대비한 임시 처리
-        console.log('알림 설정 조회 시도 중...')
-        
         const response = await axios.get(
           `${process.env.VUE_APP_API_BASE_URL}/member/mynoti`,
           {
@@ -637,23 +634,16 @@ export default {
           }
         )
         
-        console.log('알림 설정 조회 성공:', response.data)
-        console.log('조회된 설정 배열:', response.data.result)
-        
         // CommonDto 구조에 맞춰 응답 처리
         if (response.data.status_code === 200 && response.data.result && Array.isArray(response.data.result)) {
           const serverSettings = response.data.result
-          console.log('서버 설정 매핑 전:', serverSettings)
           this.notificationSettings.forEach(setting => {
             // 백엔드에서 NotificationSettingDto 객체 배열로 응답하는 경우
             const serverSetting = serverSettings.find(s => s.notificationSettingType === setting.type)
-            console.log(`설정 ${setting.type} 매핑:`, serverSetting)
             if (serverSetting) {
               setting.isActive = serverSetting.active
-              console.log(`설정 ${setting.type} 업데이트됨: ${setting.isActive}`)
             }
           })
-          console.log('최종 UI 설정:', this.notificationSettings)
         }
         
         // 원본 설정 저장 (깊은 복사)
@@ -662,9 +652,6 @@ export default {
         
       } catch (error) {
         console.error('알림 설정 조회 실패:', error)
-        
-        // 404나 기타 에러 시 기본값으로 초기화
-        console.log('기본 알림 설정으로 초기화')
         this.originalNotificationSettings = JSON.parse(JSON.stringify(this.notificationSettings))
         this.hasNotificationChanges = false
       }
@@ -718,21 +705,6 @@ export default {
         })
 
         const requestData = { settings }
-        
-        // 백엔드 DTO 검증: NotificationSettingReqDto { Map<String, Boolean> settings }
-        console.log('전송할 데이터 구조 검증:', {
-          isSettingsObject: typeof settings === 'object',
-          settingsKeys: Object.keys(settings),
-          settingsValues: Object.values(settings),
-          allValuesBoolean: Object.values(settings).every(v => typeof v === 'boolean')
-        })
-        
-        // 디버깅을 위한 로그 추가
-        console.log('알림 설정 저장 요청:', {
-          url: `${process.env.VUE_APP_API_BASE_URL}/notification/setting`,
-          data: requestData,
-          token: token ? 'exists' : 'missing'
-        })
 
         const response = await axios.post(
           `${process.env.VUE_APP_API_BASE_URL}/notification/setting`,

@@ -54,7 +54,6 @@
               <td>{{ user.createdAt }}</td>
               <td>
                 <button @click="viewUser(user)" class="view-btn">보기</button>
-                <button @click="confirmDeleteUser(user)" class="delete-btn">삭제</button>
               </td>
             </tr>
           </tbody>
@@ -85,30 +84,6 @@
           </div>
         </div>
       </div>
-
-      <!-- 삭제 확인 모달 -->
-      <div v-if="showDeleteModal" class="modal">
-        <div class="modal-content delete-modal">
-          <div class="modal-header">
-            <h2>사용자 삭제 확인</h2>
-            <button @click="closeDeleteModal" class="close-btn">×</button>
-          </div>
-          <div class="modal-body">
-            <div class="delete-warning">
-              <div class="warning-icon">⚠️</div>
-              <p><strong>{{ userToDelete?.name }}</strong> 사용자를 정말로 삭제하시겠습니까?</p>
-              <p class="warning-text">이 작업은 되돌릴 수 없습니다.</p>
-            </div>
-            
-            <div class="modal-actions">
-              <button @click="closeDeleteModal" class="cancel-btn">취소</button>
-              <button @click="deleteUser" class="delete-confirm-btn" :disabled="isDeleting">
-                {{ isDeleting ? '삭제 중...' : '삭제' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -125,10 +100,7 @@ export default {
       roleFilter: '',
       searchQuery: '',
       selectedUser: null,
-      loading: true,
-      showDeleteModal: false,
-      userToDelete: null,
-      isDeleting: false
+      loading: true
     }
   },
   mounted() {
@@ -165,7 +137,7 @@ export default {
       } catch (error) {
         console.error('사용자 목록 로드 실패:', error);
         console.error('Error details:', error.response?.data);
-        this.$store.dispatch('notification/showSnackbar', {
+        this.$store.dispatch('showSnackbar', {
           message: '사용자 목록 로드에 실패했습니다.',
           color: 'error'
         });
@@ -269,63 +241,6 @@ export default {
       localStorage.clear();
       this.$store.dispatch('user/logout');
       this.$router.push('/');
-    },
-    
-    confirmDeleteUser(user) {
-      this.userToDelete = user;
-      this.showDeleteModal = true;
-    },
-    
-    closeDeleteModal() {
-      this.showDeleteModal = false;
-      this.userToDelete = null;
-      this.isDeleting = false;
-    },
-    
-    async deleteUser() {
-      if (!this.userToDelete) return;
-      
-      try {
-        this.isDeleting = true;
-        
-        // 백엔드에서 @RequestBody로 이메일을 받으므로 URL 경로에서 이메일 제거
-        const response = await axios.delete(
-          `${process.env.VUE_APP_API_BASE_URL}/admin/member/delete/`,
-          {
-            data: this.userToDelete.email,
-            headers: {
-              'Content-Type': 'text/plain'
-            }
-          }
-        );
-        
-        console.log('Delete User API Response:', response.data);
-        
-        if (response.data.status_code === 200) {
-          // 사용자 목록에서 삭제된 사용자 제거
-          this.users = this.users.filter(user => user.id !== this.userToDelete.id);
-          this.filteredUsers = this.filteredUsers.filter(user => user.id !== this.userToDelete.id);
-          
-          this.$store.dispatch('notification/showSnackbar', {
-            message: '사용자가 성공적으로 삭제되었습니다.',
-            color: 'success'
-          });
-          
-          this.closeDeleteModal();
-        } else {
-          throw new Error(response.data.status_message || '사용자 삭제에 실패했습니다.');
-        }
-      } catch (error) {
-        console.error('사용자 삭제 실패:', error);
-        console.error('Error details:', error.response?.data);
-        
-        this.$store.dispatch('notification/showSnackbar', {
-          message: error.response?.data?.status_message || '사용자 삭제에 실패했습니다.',
-          color: 'error'
-        });
-      } finally {
-        this.isDeleting = false;
-      }
     }
   }
 }
@@ -772,53 +687,6 @@ export default {
 .cancel-btn:hover, .close-modal-btn:hover {
   background: rgba(255, 255, 255, 0.2);
   transform: translateY(-1px);
-}
-
-/* 삭제 모달 스타일 */
-.delete-modal {
-  max-width: 500px;
-}
-
-.delete-warning {
-  text-align: center;
-  padding: 20px 0;
-}
-
-.warning-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.delete-warning p {
-  margin: 12px 0;
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-.warning-text {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 14px;
-}
-
-.delete-confirm-btn {
-  background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(234, 67, 53, 0.3);
-  padding: 16px 32px;
-  font-size: 16px;
-  min-width: 140px;
-  border-radius: 12px;
-}
-
-.delete-confirm-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(234, 67, 53, 0.4);
-}
-
-.delete-confirm-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
 }
 
 /* 반응형 디자인 */

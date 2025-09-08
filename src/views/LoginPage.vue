@@ -248,8 +248,6 @@ export default {
       try {
         const response = await axios.post(`${process.env.VUE_APP_API_BASE_URL}/member/doLogin`, loginData);
         
-        console.log('Login response:', response.data);
-        
         // 백엔드 응답 구조에 맞춰 데이터 추출
         if (response.data.status_code === 200 && response.data.result) {
           const { accessToken, refreshToken } = response.data.result;

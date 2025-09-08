@@ -295,7 +295,6 @@ export default {
       const hasAlreadySent = sessionStorage.getItem(emailSentKey);
       
       if (!hasAlreadySent && !this.hasInitialEmailSent) {
-        console.log('초기 이메일 발송 시작');
         this.hasInitialEmailSent = true;
         // 페이지 진입 시 한 번만 자동으로 인증 코드 발송
         await this.sendVerificationEmail();
@@ -328,10 +327,7 @@ export default {
       this.successMessage = '';
       
       try {
-        console.log('이메일 인증 코드 발송 시작:', this.userEmail);
         const response = await emailVerificationService.sendVerificationCode(this.userEmail);
-        
-        console.log('인증 코드 발송 응답:', response);
         
         // 백엔드 응답이 문자열인 경우 처리
         if (typeof response === 'string' && response.includes('발송')) {
@@ -381,17 +377,8 @@ export default {
       this.successMessage = '';
       
       try {
-        console.log('=== 인증 코드 검증 시작 ===');
-        console.log('사용자 이메일:', this.userEmail);
-        console.log('입력된 인증 코드:', this.verificationCode);
-        console.log('인증 코드 길이:', this.verificationCode.length);
-        console.log('인증 코드 정규식 테스트:', /^[A-Za-z0-9]{6}$/.test(this.verificationCode));
         
         const response = await emailVerificationService.verifyEmailCode(this.userEmail, this.verificationCode);
-        
-        console.log('인증 코드 검증 응답:', response);
-        console.log('응답 타입:', typeof response);
-        console.log('응답 내용 상세:', JSON.stringify(response));
         
         // 다양한 응답 형태에 대응
         let isVerificationSuccess = false;
@@ -409,7 +396,6 @@ export default {
           if (!hasFailureKeyword) {
             // 실패 키워드가 없으면 성공으로 처리
             isVerificationSuccess = true;
-            console.log('실패 키워드 없음 - 성공으로 처리');
           } else {
             // 기존 성공 키워드 체크
             isVerificationSuccess = response.includes('인증이 완료되었습니다') || 
@@ -449,7 +435,6 @@ export default {
         console.log('최종 인증 성공 여부:', isVerificationSuccess);
         
         if (isVerificationSuccess) {
-          console.log('인증 성공 - 회원가입 처리 시작');
           // 인증 성공 시 실제 회원가입 처리
           await this.completeSignup();
         } else {
@@ -473,16 +458,12 @@ export default {
     },
     
     async completeSignup() {
-      console.log('회원가입 완료 처리 시작');
       this.isVerifying = true;
       
       try {
         // 세션 스토리지에서 회원가입 정보 가져오기
         const signupDataString = sessionStorage.getItem('pendingSignupData');
-        console.log('세션 스토리지 데이터:', signupDataString);
-        
         const signupData = JSON.parse(signupDataString || '{}');
-        console.log('파싱된 회원가입 데이터:', signupData);
         
         // 더 엄격한 null/undefined 체크
         if (!signupData || 
@@ -517,13 +498,9 @@ export default {
           password: '[보안상 숨김]',
           passwordConfirm: '[보안상 숨김]'
         });
-        
-        console.log('회원가입 API 호출 시작');
+
         const response = await emailVerificationService.completeMemberSignup(cleanedSignupData);
-        
-        console.log('회원가입 완료 응답:', response);
-        console.log('응답 타입:', typeof response);
-        console.log('응답 상세:', JSON.stringify(response));
+
         
         // 다양한 응답 형태에 대응
         let isSignupSuccess = false;
@@ -539,10 +516,8 @@ export default {
           successMessage = response;
         }
         
-        console.log('회원가입 성공 여부:', isSignupSuccess);
         
         if (isSignupSuccess) {
-          console.log('회원가입 성공 처리');
           this.verificationResult = {
             success: true,
             message: successMessage
@@ -550,7 +525,6 @@ export default {
           
           // 임시 데이터 제거
           sessionStorage.removeItem('pendingSignupData');
-          console.log('세션 데이터 제거 완료');
         } else {
           console.log('회원가입 실패 처리');
           this.verificationResult = {

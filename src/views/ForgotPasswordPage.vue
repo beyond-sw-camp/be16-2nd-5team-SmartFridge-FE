@@ -290,8 +290,6 @@ export default {
           mail: this.email
         });
         
-        console.log('Send verification code response:', response.data);
-        
         // 백엔드 응답 구조에 맞춰 처리 (CommonDto 구조)
         if (response.data.result === "OK" && response.data.status_code === 200) {
           this.successMessage = response.data.status_message || "인증코드가 발송되었습니다.";
@@ -343,8 +341,6 @@ export default {
           mail: this.email,
           verifyCode: this.verificationCode
         });
-        
-        console.log('Verify code response:', response.data);
         
         // 백엔드 응답 구조에 맞춰 처리 (CommonDto 구조)
         if (response.data.result === "VERIFIED" && response.data.status_code === 200) {
@@ -412,8 +408,6 @@ export default {
         }).post(`${apiBaseUrl}/member/forgot-password/send-code`, {
           mail: this.email
         });
-        
-        console.log('Resend verification code response:', response.data);
         
         if (response.data.result === "OK" && response.data.status_code === 200) {
           this.successMessage = response.data.status_message || "인증코드가 재발송되었습니다.";

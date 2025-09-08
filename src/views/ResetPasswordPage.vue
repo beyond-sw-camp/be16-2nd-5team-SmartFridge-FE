@@ -211,8 +211,6 @@ export default {
           }
         }).put(`${apiBaseUrl}/member/forgot-password/updatepw`, resetData);
         
-        console.log('Reset password response:', response.data);
-        
         // 백엔드 응답 구조에 맞춰 처리 (CommonDto 구조)
         if (response.data.status_code === 200) {
           this.successMessage = response.data.status_message || "비밀번호가 성공적으로 변경되었습니다. 새 비밀번호로 로그인해주세요.";
