@@ -82,7 +82,7 @@
                <div class="form-section">
                  <label class="form-label">
                    <v-icon size="18" color="info" class="mr-2">mdi-fridge</v-icon>
-                   보관위치
+                   보관위치 *
                  </label>
                  <v-select
                    :items="storageTypes"
@@ -94,6 +94,7 @@
                    class="custom-input"
                    item-title="name"
                    item-value="value"
+                   :rules="[v => !!v || '보관위치를 선택해주세요']"
                    :disabled="readOnly"
                  ></v-select>
                </div>
@@ -114,6 +115,8 @@
                    hide-details="auto"
                    class="custom-input"
                    placeholder="날짜를 선택하세요"
+                   :min="getTodayDate()"
+                   :rules="[v => !!v || '유통기한 날짜를 선택해주세요', v => !v || new Date(v) >= new Date(getTodayDate()) || '유통기한은 오늘 날짜 이후여야 합니다']"
                    :disabled="readOnly"
                  ></v-text-field>
                </div>
@@ -143,7 +146,7 @@
                <div class="form-section">
                  <label class="form-label">
                    <v-icon size="18" color="purple" class="mr-2">mdi-shape</v-icon>
-                   카테고리
+                   카테고리 *
                  </label>
                  <v-select
                    :items="categories"
@@ -155,6 +158,7 @@
                    class="custom-input"
                    item-title="name"
                    item-value="value"
+                   :rules="[v => !!v || '카테고리를 선택해주세요']"
                    :disabled="readOnly"
                  ></v-select>
                </div>
@@ -361,9 +365,42 @@ export default {
         this.formData.quantity--;
       }
     },
+    getTodayDate() {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    },
     async save(isTemp) {
+      // 필수 필드 검증
       if (!this.formData.name.trim()) {
         this.$refs.snackbar.showWarning("식품명을 입력해주세요.");
+        return;
+      }
+      
+      if (!this.formData.quantity || this.formData.quantity <= 0) {
+        this.$refs.snackbar.showWarning("수량을 입력해주세요.");
+        return;
+      }
+      
+      if (!this.formData.storageType) {
+        this.$refs.snackbar.showWarning("보관위치를 선택해주세요.");
+        return;
+      }
+      
+      if (!this.formData.expirationDate) {
+        this.$refs.snackbar.showWarning("유통기한 날짜를 선택해주세요.");
+        return;
+      }
+      
+      if (new Date(this.formData.expirationDate) < new Date(this.getTodayDate())) {
+        this.$refs.snackbar.showWarning("유통기한은 오늘 날짜 이후여야 합니다.");
+        return;
+      }
+      
+      if (!this.formData.category) {
+        this.$refs.snackbar.showWarning("카테고리를 선택해주세요.");
         return;
       }
       
