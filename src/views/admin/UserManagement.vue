@@ -54,6 +54,7 @@
               <td>{{ user.createdAt }}</td>
               <td>
                 <button @click="viewUser(user)" class="view-btn">보기</button>
+                <button @click="confirmDeleteUser(user)" class="delete-btn">삭제</button>
               </td>
             </tr>
           </tbody>
@@ -84,6 +85,34 @@
           </div>
         </div>
       </div>
+
+      <!-- 삭제 확인 모달 -->
+      <div v-if="deleteModal" class="modal">
+        <div class="modal-content delete-modal">
+          <div class="modal-header">
+            <h2>사용자 삭제 확인</h2>
+            <button @click="closeDeleteModal" class="close-btn">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="delete-warning">
+              <div class="warning-icon">⚠️</div>
+              <h3>정말로 이 사용자를 삭제하시겠습니까?</h3>
+              <p>삭제된 사용자는 복구할 수 없습니다.</p>
+              <div class="user-info">
+                <p><strong>이름:</strong> {{ userToDelete?.name }}</p>
+                <p><strong>이메일:</strong> {{ userToDelete?.email }}</p>
+              </div>
+            </div>
+            
+            <div class="modal-actions">
+              <button @click="closeDeleteModal" class="cancel-btn">취소</button>
+              <button @click="deleteUser" class="confirm-delete-btn" :disabled="deleting">
+                {{ deleting ? '삭제 중...' : '삭제' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -100,7 +129,10 @@ export default {
       roleFilter: '',
       searchQuery: '',
       selectedUser: null,
-      loading: true
+      loading: true,
+      deleteModal: false,
+      userToDelete: null,
+      deleting: false
     }
   },
   mounted() {
@@ -241,6 +273,62 @@ export default {
       localStorage.clear();
       this.$store.dispatch('user/logout');
       this.$router.push('/');
+    },
+
+    // 삭제 확인 모달 열기
+    confirmDeleteUser(user) {
+      this.userToDelete = user;
+      this.deleteModal = true;
+    },
+
+    // 삭제 확인 모달 닫기
+    closeDeleteModal() {
+      this.deleteModal = false;
+      this.userToDelete = null;
+      this.deleting = false;
+    },
+
+    // 사용자 삭제 실행
+    async deleteUser() {
+      if (!this.userToDelete) return;
+
+      try {
+        this.deleting = true;
+        
+        const response = await axios.delete(`${process.env.VUE_APP_API_BASE_URL}/admin/member/delete/`, {
+          data: this.userToDelete.email,
+          headers: {
+            'Content-Type': 'text/plain'
+          }
+        });
+
+        console.log('Delete Member API Response:', response.data);
+
+        if (response.data.status_code === 200) {
+          this.$store.dispatch('showSnackbar', {
+            message: '사용자가 성공적으로 삭제되었습니다.',
+            color: 'success'
+          });
+
+          // 사용자 목록에서 제거
+          this.users = this.users.filter(user => user.email !== this.userToDelete.email);
+          this.filteredUsers = this.filteredUsers.filter(user => user.email !== this.userToDelete.email);
+          
+          this.closeDeleteModal();
+        } else {
+          throw new Error(response.data.status_message || '사용자 삭제에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error('사용자 삭제 실패:', error);
+        console.error('Error details:', error.response?.data);
+        
+        this.$store.dispatch('showSnackbar', {
+          message: error.response?.data?.status_message || '사용자 삭제에 실패했습니다.',
+          color: 'error'
+        });
+      } finally {
+        this.deleting = false;
+      }
     }
   }
 }
@@ -687,6 +775,71 @@ export default {
 .cancel-btn:hover, .close-modal-btn:hover {
   background: rgba(255, 255, 255, 0.2);
   transform: translateY(-1px);
+}
+
+/* 삭제 모달 스타일 */
+.delete-modal {
+  max-width: 500px;
+}
+
+.delete-warning {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.warning-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.delete-warning h3 {
+  color: #ea4335;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 16px 0;
+}
+
+.delete-warning p {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  margin: 8px 0;
+}
+
+.user-info {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 20px 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.user-info p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.confirm-delete-btn {
+  background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%);
+  color: white;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(234, 67, 53, 0.3);
+}
+
+.confirm-delete-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(234, 67, 53, 0.4);
+}
+
+.confirm-delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* 반응형 디자인 */
