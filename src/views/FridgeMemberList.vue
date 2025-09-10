@@ -487,6 +487,15 @@ const senderName = ref(localStorage.getItem("name"));
 // 전역 SSE 이벤트 리스너를 위한 참조
 let adminChatListener = null;
 
+// 초기화 상태 플래그 (fetchUsers 완료 전까지 SSE 이벤트 무시)
+const isInitialized = ref(false);
+
+// 유저 관리 페이지에서 SSE 이벤트 처리 중인지 확인하는 플래그
+const isProcessingSSEEvent = ref(false);
+
+// 마지막 배지 상태 (중복 업데이트 방지)
+let lastBadgeState = null;
+
 // 이미지 관련 상태
 const newImages = ref([]);
 const imagePreview = ref([]);
@@ -581,8 +590,16 @@ const fetchUsers = async () => {
         profileImage: profileImage,
       };
     });
+    
+    // 사용자 목록 로드 후 배지 상태 업데이트
+    updateAdminChatBadge();
+    
+    // 초기화 완료 플래그 설정 (이제부터 SSE 이벤트 처리 가능)
+    isInitialized.value = true;
   } catch (error) {
     console.error("사용자 목록 조회 실패:", getErrorMessage(error));
+    // 에러가 발생해도 초기화 완료로 처리 (무한 대기 방지)
+    isInitialized.value = true;
   }
 };
 
@@ -613,21 +630,16 @@ onMounted(async () => {
   
   // 유저관리 페이지 진입 시 MANAGER_CHAT 알림 제거하지 않음 (실제 unReadCount 기반으로 배지 관리)
   
-  // 사용자 목록 로드
-  await fetchUsers();
-  window.addEventListener('beforeunload', handleBeforeUnload);
+  // sessionStorage에서 배지 상태 복원 (페이지 이동 시에도 유지)
+  await store.dispatch('notification/restoreBadgeStateFromStorage');
   
-  // 전역 SSE 이벤트 리스너 등록
+  // 사용자 목록 로드 (fetchUsers 내부에서 배지 상태 업데이트됨)
+  await fetchUsers();
+  
+  // fetchUsers 완료 후 SSE 이벤트 리스너 등록 (배지 깜빡임 방지)
   setupAdminChatListener();
   
-  // 초기 배지 상태 설정 (사용자 목록의 실제 unReadCount 기반)
-  updateAdminChatBadge();
-  
-  // 냉장고 진입 시 채팅 배지 상태 동기화 (사이드바 배지 업데이트)
-  const currentFridgeId = store.getters.getCurrentFridgeId;
-  if (currentFridgeId) {
-    await store.dispatch('notification/updateChatBadgesOnFridgeEnter', currentFridgeId);
-  }
+  window.addEventListener('beforeunload', handleBeforeUnload);
 });
 
 // --- Watcher ---
@@ -723,8 +735,10 @@ const loadChatHistory = async (user, isLoadMore = false) => {
       if (userIndex !== -1) {
         users.value[userIndex].unReadCount = 0;
         
-        // 사이드바 배지 상태도 함께 업데이트
-        updateAdminChatBadge();
+        // SSE 이벤트 처리 중이 아닐 때만 배지 업데이트 (중복 방지)
+        if (!isProcessingSSEEvent.value) {
+          updateAdminChatBadge();
+        }
       }
     }
 
@@ -1152,44 +1166,100 @@ const removeAdminChatListener = () => {
   }
 };
 
-// 배지 업데이트 함수
+// 배지 업데이트 함수 (사용자 목록의 unReadCount 기반으로 즉시 동기화)
 const updateAdminChatBadge = () => {
-  // 모든 사용자의 unReadCount 확인
+  // 모든 사용자의 unReadCount 확인 (즉시 동기화)
   const hasUnreadMessages = users.value.some(user => (user.unReadCount || 0) > 0);
+  const newBadgeState = hasUnreadMessages ? 1 : 0;
   
-  // 배지 상태 업데이트
-  if (hasUnreadMessages) {
-    store.commit('notification/setAdminChatCount', 1);
-  } else {
-    store.commit('notification/setAdminChatCount', 0);
+  // 상태가 변경되지 않았으면 업데이트하지 않음 (중복 방지)
+  if (lastBadgeState === newBadgeState) {
+    console.log('🔔 배지 상태 변경 없음, 업데이트 건너뛰기:', {
+      currentState: newBadgeState,
+      hasUnreadMessages
+    });
+    return;
   }
   
+  // 마지막 상태 업데이트
+  lastBadgeState = newBadgeState;
+  
+  // 유저 관리 페이지에서 설정한 배지 상태 추적
+  store.commit('notification/setUserManagementBadgeState', { 
+    hasUnreadMessages,
+    isSetByUserManagement: true 
+  });
+  
+  // 배지 상태 즉시 업데이트 (지연 없음)
+  store.commit('notification/setAdminChatCount', newBadgeState);
+  
+  console.log('🔔 유저 관리 배지 즉시 업데이트:', {
+    hasUnreadMessages,
+    newBadgeState,
+    selectedUser: selectedUser.value?.email,
+    usersUnReadCounts: users.value.map(user => ({ 
+      name: user.name, 
+      unReadCount: user.unReadCount 
+    }))
+  });
 };
 
 // MANAGER_CHAT 알림 처리
 const handleAdminChatNotification = async (notification) => {
   
   if (notification.type === 'MANAGER_CHAT') {
-    const roomId = notification.roomId || notification.chatRoomId;
-  
-    let userIndex = -1;
-    
-    if (roomId) {
-      userIndex = users.value.findIndex(u => u.roomId === roomId);
+    // 중복 처리 방지
+    if (isProcessingSSEEvent.value) {
+      console.log('📨 SSE MANAGER_CHAT 이벤트 중복 처리 방지');
+      return;
     }
     
-    if (userIndex !== -1) {
-      users.value[userIndex].unReadCount = (users.value[userIndex].unReadCount || 0) + 1;
+    // 초기화가 완료되지 않았으면 SSE 이벤트 무시 (배지 깜빡임 방지)
+    if (!isInitialized.value) {
+      console.log('📨 SSE MANAGER_CHAT 이벤트 무시 (초기화 미완료):', {
+        roomId: notification.roomId || notification.chatRoomId,
+        isInitialized: isInitialized.value
+      });
+      return;
+    }
+    
+    // SSE 이벤트 처리 시작
+    isProcessingSSEEvent.value = true;
+    
+    try {
+      const roomId = notification.roomId || notification.chatRoomId;
+    
+      let userIndex = -1;
       
-      // 배지 상태 업데이트
-      updateAdminChatBadge();
-    } else {
-      // 사용자를 찾을 수 없는 경우 사용자 목록을 새로 고침하여 최신 unReadCount 가져오기
-      try {
-        await fetchUsers();
-      } catch (error) {
-        console.error('사용자 목록 새로고침 실패:', error);
+      if (roomId) {
+        userIndex = users.value.findIndex(u => u.roomId === roomId);
       }
+      
+      if (userIndex !== -1) {
+        // 현재 선택된 사용자의 메시지가 아닌 경우에만 unReadCount 증가
+        if (selectedUser.value?.roomId !== roomId) {
+          users.value[userIndex].unReadCount = (users.value[userIndex].unReadCount || 0) + 1;
+          
+          // 실시간 배지 동기화 (사용자 목록의 unReadCount 기반)
+          updateAdminChatBadge();
+        } else {
+          console.log('📨 현재 선택된 사용자의 메시지이므로 unReadCount 증가하지 않음:', {
+            selectedUser: selectedUser.value?.email,
+            roomId
+          });
+        }
+      } else {
+        // 사용자를 찾을 수 없는 경우 사용자 목록을 새로 고침하여 최신 unReadCount 가져오기
+        try {
+          await fetchUsers();
+          // fetchUsers 내부에서 updateAdminChatBadge가 호출됨
+        } catch (error) {
+          console.error('사용자 목록 새로고침 실패:', error);
+        }
+      }
+    } finally {
+      // SSE 이벤트 처리 완료
+      isProcessingSSEEvent.value = false;
     }
   }
 };
@@ -1199,6 +1269,31 @@ onUnmounted(() => {
   disconnectWebSocket();
   removeAdminChatListener();
   window.removeEventListener('beforeunload', handleBeforeUnload);
+  
+  // 페이지를 떠날 때 현재 배지 상태를 유지 (실제 unReadCount 기반)
+  updateAdminChatBadge();
+  
+  // 페이지를 떠날 때 배지 상태를 sessionStorage에 저장하여 로그아웃 후에도 유지
+  const currentBadgeState = store.getters['notification/typeCounts']?.MANAGER_CHAT || 0;
+  const userManagementState = store.getters['notification/userManagementBadgeState'];
+  
+  if (typeof window !== 'undefined') {
+    sessionStorage.setItem('managerChatBadgeState', JSON.stringify({
+      count: currentBadgeState,
+      timestamp: Date.now()
+    }));
+    
+    sessionStorage.setItem('userManagementBadgeState', JSON.stringify({
+      hasUnreadMessages: userManagementState?.hasUnreadMessages || false,
+      isSetByUserManagement: userManagementState?.isSetByUserManagement || false,
+      timestamp: Date.now()
+    }));
+    
+    console.log('💾 유저 관리 페이지 종료 시 배지 상태 저장:', {
+      managerChatBadge: currentBadgeState,
+      userManagementState
+    });
+  }
 });
 </script>
 

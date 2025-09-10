@@ -64,8 +64,8 @@ onMounted(() => {
     return;
   }
   
-  // 채팅 페이지 진입 시 알림 제거 (배지 초기화)
-  store.dispatch('notification/clearChatNotificationsOnEnter');
+  // 채팅 페이지 진입 시 알림 제거 (MANAGER_CHAT 배지는 유지)
+  // store.dispatch('notification/clearChatNotificationsOnEnter'); // 유저 관리 배지 보호를 위해 주석 처리
 });
 </script>
 

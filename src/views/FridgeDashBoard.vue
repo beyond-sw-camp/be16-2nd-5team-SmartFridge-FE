@@ -34,8 +34,11 @@ onMounted(async () => {
       await store.dispatch('notification/initSSE');
     }
     
-    // 냉장고 진입 시 채팅 목록 조회하여 배지 상태 업데이트
+    // 냉장고 진입 시 채팅 목록 조회하여 배지 상태 업데이트 (그룹 채팅만, MANAGER_CHAT 배지 보호)
     await store.dispatch('notification/updateChatBadgesOnFridgeEnter', currentFridgeId.value)
+    
+    // 유저 관리 페이지 배지 상태 초기 설정은 제거 (MANAGER_CHAT 배지 보호)
+    // await store.dispatch('notification/initializeUserManagementBadge', currentFridgeId.value)
   }
 })
 </script>

@@ -362,9 +362,17 @@ onMounted(async () => {
     managerRoom.value = first;
     myPurchaseRooms.value = rest;
 
-    // 배지 동기화: 그룹 채팅만 관리 (MANAGER_CHAT은 유저 관리 탭에서 별도 관리)
-    const groupHasUnread = rest?.some(r => (r.unReadCount || 0) > 0);
-    store.commit('notification/setGroupChatCount', groupHasUnread ? 1 : 0);
+    // 배지 동기화: 모든 채팅방의 unReadCount 합계로 계산
+    const managerUnreadCount = managerRoom.value?.unReadCount || 0;
+    const groupUnreadCount = rest?.reduce((sum, r) => sum + (r.unReadCount || 0), 0) || 0;
+    const totalUnreadCount = managerUnreadCount + groupUnreadCount;
+    store.commit('notification/setGroupChatCount', totalUnreadCount > 0 ? 1 : 0);
+    
+    // 유저 관리 배지도 실제 unReadCount와 동기화
+    const currentFridgeId = store.getters.getCurrentFridgeId;
+    if (currentFridgeId) {
+      store.dispatch('notification/syncUserManagementBadgeWithUnreadCount', currentFridgeId);
+    }
   } catch (error) {
     console.error("API 호출 에러:", error);
   } finally {
@@ -420,9 +428,17 @@ const refreshMyChatRooms = async () => {
     managerRoom.value = first;
     myPurchaseRooms.value = rest;
 
-    // 배지 동기화: GROUP_CHAT만 관리 (MANAGER_CHAT은 FridgeMemberList에서 별도 관리)
-    const groupHasUnread = rest?.some(r => (r.unReadCount || 0) > 0);
-    store.commit('notification/setGroupChatCount', groupHasUnread ? 1 : 0);
+    // 배지 동기화: 모든 채팅방의 unReadCount 합계로 계산
+    const managerUnreadCount = managerRoom.value?.unReadCount || 0;
+    const groupUnreadCount = rest?.reduce((sum, r) => sum + (r.unReadCount || 0), 0) || 0;
+    const totalUnreadCount = managerUnreadCount + groupUnreadCount;
+    store.commit('notification/setGroupChatCount', totalUnreadCount > 0 ? 1 : 0);
+    
+    // 유저 관리 배지도 실제 unReadCount와 동기화
+    const currentFridgeId = store.getters.getCurrentFridgeId;
+    if (currentFridgeId) {
+      store.dispatch('notification/syncUserManagementBadgeWithUnreadCount', currentFridgeId);
+    }
   } catch (error) {
     console.error("API 호출 에러:", error);
     alert(getErrorMessage(error));
@@ -503,9 +519,11 @@ const selectRoom = (room, roomType) => {
     if (target) target.unReadCount = 0;
   }
 
-  // 배지 동기화: 그룹 채팅만 관리 (MANAGER_CHAT은 유저 관리 탭에서 별도 관리)
-  const groupHasUnread = myPurchaseRooms.value?.some(r => (r.unReadCount || 0) > 0);
-  store.commit('notification/setGroupChatCount', groupHasUnread ? 1 : 0);
+  // 배지 동기화: 모든 채팅방의 unReadCount 합계로 계산
+  const managerUnreadCount = managerRoom.value?.unReadCount || 0;
+  const groupUnreadCount = myPurchaseRooms.value?.reduce((sum, r) => sum + (r.unReadCount || 0), 0) || 0;
+  const totalUnreadCount = managerUnreadCount + groupUnreadCount;
+  store.commit('notification/setGroupChatCount', totalUnreadCount > 0 ? 1 : 0);
 };
 
 const startChat = (room) => {
@@ -602,7 +620,10 @@ function handleRealtimeNotification(evt) {
     if (n.type === 'MANAGER_CHAT') {
       // 관리자 채팅의 unReadCount 업데이트 (배지는 유저 관리 탭에서 관리)
       if (managerRoom.value && managerRoom.value.roomId === rid) {
-        managerRoom.value.unReadCount = (managerRoom.value.unReadCount || 0) + 1;
+        // 현재 선택된 방이 아닌 경우에만 unReadCount 증가
+        if (selectedRoomId.value !== rid) {
+          managerRoom.value.unReadCount = (managerRoom.value.unReadCount || 0) + 1;
+        }
       }
       return;
     }
@@ -618,9 +639,17 @@ function handleRealtimeNotification(evt) {
   // 방 ID를 알 수 없거나 목록에 없다면 전체 카운트를 서버에서 동기화
   refreshUnreadCounts();
 
-  // 배지 동기화: 그룹 채팅만 관리 (MANAGER_CHAT은 유저 관리 탭에서 별도 관리)
-  const groupHasUnread = myPurchaseRooms.value?.some(r => (r.unReadCount || 0) > 0);
-  store.commit('notification/setGroupChatCount', groupHasUnread ? 1 : 0);
+  // 배지 동기화: 모든 채팅방의 unReadCount 합계로 계산
+  const managerUnreadCount = managerRoom.value?.unReadCount || 0;
+  const groupUnreadCount = myPurchaseRooms.value?.reduce((sum, r) => sum + (r.unReadCount || 0), 0) || 0;
+  const totalUnreadCount = managerUnreadCount + groupUnreadCount;
+  store.commit('notification/setGroupChatCount', totalUnreadCount > 0 ? 1 : 0);
+  
+  // 유저 관리 배지도 실제 unReadCount와 동기화
+  const currentFridgeId = store.getters.getCurrentFridgeId;
+  if (currentFridgeId) {
+    store.dispatch('notification/syncUserManagementBadgeWithUnreadCount', currentFridgeId);
+  }
 }
 
 async function refreshUnreadCounts() {
@@ -642,9 +671,17 @@ async function refreshUnreadCounts() {
       if (found) room.unReadCount = found.unReadCount || 0;
     });
 
-    // 배지 동기화: 그룹 채팅만 관리 (MANAGER_CHAT은 유저 관리 탭에서 별도 관리)
-    const groupHasUnread = rest?.some(r => (r.unReadCount || 0) > 0);
-    store.commit('notification/setGroupChatCount', groupHasUnread ? 1 : 0);
+    // 배지 동기화: 모든 채팅방의 unReadCount 합계로 계산
+    const managerUnreadCount = managerRoom.value?.unReadCount || 0;
+    const groupUnreadCount = rest?.reduce((sum, r) => sum + (r.unReadCount || 0), 0) || 0;
+    const totalUnreadCount = managerUnreadCount + groupUnreadCount;
+    store.commit('notification/setGroupChatCount', totalUnreadCount > 0 ? 1 : 0);
+    
+    // 유저 관리 배지도 실제 unReadCount와 동기화
+    const currentFridgeId = store.getters.getCurrentFridgeId;
+    if (currentFridgeId) {
+      store.dispatch('notification/syncUserManagementBadgeWithUnreadCount', currentFridgeId);
+    }
   } catch (e) {
     // 네트워크 오류는 조용히 무시
   } finally {

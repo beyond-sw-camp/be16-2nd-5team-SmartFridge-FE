@@ -158,7 +158,33 @@ const syncChatBadgeStatus = async () => {
   // 냉장고 ID가 있을 때만 채팅 배지 상태 동기화
   const currentFridgeId = store.getters.getCurrentFridgeId;
   if (currentFridgeId) {
-    await store.dispatch('notification/updateChatBadgesOnFridgeEnter', currentFridgeId);
+    // 그룹 채팅 배지만 동기화 (MANAGER_CHAT은 유저 관리 페이지에서 관리)
+    await store.dispatch('notification/updateGroupChatBadgeOnly', currentFridgeId);
+    
+    // MANAGER_CHAT 배지는 유저 관리 페이지에서만 관리 (사이드바에서는 건드리지 않음)
+    console.log('🔄 syncChatBadgeStatus - MANAGER_CHAT 배지 상태 유지:', {
+      currentBadge: store.getters['notification/typeCounts']?.MANAGER_CHAT || 0,
+      message: 'MANAGER_CHAT 배지는 유저 관리 페이지에서만 관리'
+    });
+  }
+};
+
+// 전역 MANAGER_CHAT 알림 처리 함수
+const handleGlobalManagerChatNotification = (event) => {
+  const notification = event.detail;
+  if (notification.type === 'MANAGER_CHAT') {
+    console.log('📨 사이드바에서 전역 MANAGER_CHAT 알림 수신:', notification);
+    
+    // 유저 관리 페이지에서 설정한 배지 상태가 있으면 업데이트
+    const userManagementState = store.getters['notification/userManagementBadgeState'];
+    if (userManagementState?.isSetByUserManagement) {
+      // hasUnreadMessages를 true로 설정하고 배지 표시
+      store.commit('notification/setUserManagementBadgeState', {
+        hasUnreadMessages: true,
+        isSetByUserManagement: true
+      });
+      store.commit('notification/setAdminChatCount', 1);
+    }
   }
 };
 
@@ -181,15 +207,56 @@ onMounted(async () => {
   }
   await fetchUserType(currentFridgeId);
   
-  // 채팅 배지 상태 동기화 (초기 로드 시)
+  // sessionStorage에서 배지 상태 복원 (페이지 이동 시에도 유지)
+  await store.dispatch('notification/restoreBadgeStateFromStorage');
+  
+  // 채팅 배지 상태 동기화 (초기 로드 시) - MANAGER_CHAT 배지는 제외
   await syncChatBadgeStatus();
   
-  // 주기적으로 채팅 배지 상태 동기화 (30초마다)
-  const syncInterval = setInterval(syncChatBadgeStatus, 30000);
+  // 유저 관리 배지 초기 설정 (관리자인 경우) - 냉장고 진입 시 배지 상태 초기화
+  if (userType.value === 'MANAGER') {
+    // 냉장고 진입 시 채팅 배지 상태 동기화 (그룹 채팅만, MANAGER_CHAT 배지 보호)
+    await store.dispatch('notification/updateChatBadgesOnFridgeEnter', currentFridgeId);
+    console.log('🔍 사이드바 초기 로드 - 냉장고 진입 시 배지 상태 초기화 (MANAGER_CHAT 배지 보호):', {
+      currentBadge: store.getters['notification/typeCounts']?.MANAGER_CHAT || 0,
+      userType: userType.value,
+      fridgeId: currentFridgeId,
+      userManagementState: store.getters['notification/userManagementBadgeState']
+    });
+  }
+  
+  // 전역 MANAGER_CHAT 알림 이벤트 리스너 등록
+  window.addEventListener('admin-chat-notification', handleGlobalManagerChatNotification);
+  
+  // 주기적으로 채팅 배지 상태 동기화 (10분마다로 변경하여 배지가 너무 자주 사라지는 문제 방지)
+  const syncInterval = setInterval(syncChatBadgeStatus, 600000);
   
   // 컴포넌트 언마운트 시 인터벌 정리
   onUnmounted(() => {
     clearInterval(syncInterval);
+    window.removeEventListener('admin-chat-notification', handleGlobalManagerChatNotification);
+    
+    // 사이드바 종료 시 배지 상태를 sessionStorage에 저장하여 로그아웃 후에도 유지
+    const currentBadgeState = store.getters['notification/typeCounts']?.MANAGER_CHAT || 0;
+    const userManagementState = store.getters['notification/userManagementBadgeState'];
+    
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('managerChatBadgeState', JSON.stringify({
+        count: currentBadgeState,
+        timestamp: Date.now()
+      }));
+      
+      sessionStorage.setItem('userManagementBadgeState', JSON.stringify({
+        hasUnreadMessages: userManagementState?.hasUnreadMessages || false,
+        isSetByUserManagement: userManagementState?.isSetByUserManagement || false,
+        timestamp: Date.now()
+      }));
+      
+      console.log('💾 사이드바 종료 시 배지 상태 저장:', {
+        managerChatBadge: currentBadgeState,
+        userManagementState
+      });
+    }
   });
 });
 
@@ -210,16 +277,25 @@ const menuItems = computed(() => {
     isManager = false;
   }
   
-
-  
   // 유저 관리 탭 배지 (실제 채팅방 unReadCount 기반)
   let userManagementBadgeCount = 0;
   if (isManager) {
     // 유저 관리 탭은 실제 채팅방의 unReadCount를 기반으로 배지 표시
-    // store에서 관리자 채팅 배지 상태를 가져옴 (실제 unReadCount 기반으로 동기화됨)
+    // store에서 관리자 채팅 배지 상태를 가져옴 (실시간 동기화됨)
     const adminChatBadge = store.getters['notification/typeCounts']?.MANAGER_CHAT || 0;
+    const userManagementState = store.getters['notification/userManagementBadgeState'];
+    
+    // 배지 표시 로직 단순화: MANAGER_CHAT 배지가 있으면 표시
     userManagementBadgeCount = adminChatBadge > 0 ? 1 : 0;
-    console.log('유저 관리 탭 배지:', { adminChatBadge, userManagementBadgeCount, typeCounts: store.getters['notification/typeCounts'] });
+    
+    console.log('📱 사이드바 유저 관리 탭 배지:', { 
+      adminChatBadge, 
+      userManagementBadgeCount,
+      userManagementState,
+      typeCounts: store.getters['notification/typeCounts'],
+      currentPath: window.location.pathname,
+      isManager
+    });
   }
   
   let finalChatBadgeCount = 0;

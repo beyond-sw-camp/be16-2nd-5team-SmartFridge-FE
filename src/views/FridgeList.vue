@@ -456,6 +456,9 @@ export default {
       // 냉장고 진입 시 채팅 목록 조회하여 배지 상태 업데이트
       await this.$store.dispatch('notification/updateChatBadgesOnFridgeEnter', fridgeId);
       
+      // 유저 관리 페이지 배지 상태 초기 설정은 제거 (MANAGER_CHAT 배지 보호)
+      // await this.$store.dispatch('notification/initializeUserManagementBadge', fridgeId);
+      
       this.$router.push('/fridge/dashboard');
     },
     openCreateModal() {

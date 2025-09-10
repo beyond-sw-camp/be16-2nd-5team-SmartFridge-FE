@@ -51,7 +51,7 @@ function createSSEConnection(store) {
       { 
         headers: { Authorization: `Bearer ${token}` },
         heartbeatTimeout: 60000,
-        retryTimeout: 5000
+        // retryTimeout: 5000
       }
     );
 
@@ -91,7 +91,7 @@ function createSSEConnection(store) {
     const notificationTypes = [
       'ADMIN_REPLY', 'NEW_FOOD', 'EXPIRATION_IMMINENT', 
       'NEW_ANNOUNCEMENT', 'NEW_COMMENT', 'NEW_INQUIRY', 'NEW_MEMBER',
-      'MANAGER_CHAT', 'GROUP_CHAT', 'ROOM_FULL', 'INQUIRY_REPLY'
+      'MANAGER_CHAT', 'GROUP_CHAT', 'INQUIRY_REPLY'
     ];
 
     notificationTypes.forEach(type => {
@@ -210,6 +210,11 @@ export default {
       GROUP_CHAT: 0,
       ROOM_FULL: 0,
       INQUIRY_REPLY: 0
+    },
+    // 유저 관리 페이지에서 설정한 배지 상태 추적
+    userManagementBadgeState: {
+      isSetByUserManagement: false, // 유저 관리 페이지에서 설정했는지 여부
+      hasUnreadMessages: false // 실제 unReadCount 기반 상태
     }
   },
   mutations: {
@@ -224,7 +229,24 @@ export default {
   
       // typeCounts 업데이트 (사이드바 배지용)
       if (notification.type && notification.type in state.typeCounts) {
-        state.typeCounts[notification.type]++;
+        if (notification.type === 'MANAGER_CHAT') {
+          // MANAGER_CHAT의 경우 유저 관리 페이지에서만 관리하도록 함 (중복 배지 업데이트 방지)
+          const currentPath = window.location.pathname;
+          if (currentPath === '/fridge/member/list') {
+            // 유저 관리 페이지에 있으면 store에서 배지 업데이트하지 않음 (커스텀 이벤트에서 처리)
+            console.log('📨 SSE MANAGER_CHAT 알림 - 유저 관리 페이지에서 커스텀 이벤트로 처리');
+          } else {
+            // 다른 페이지에 있으면 배지 표시
+            state.typeCounts[notification.type] = 1;
+            console.log('📨 SSE MANAGER_CHAT 알림 - 다른 페이지에서 배지 표시:', {
+              typeCounts: state.typeCounts.MANAGER_CHAT,
+              currentPath
+            });
+          }
+        } else {
+          // 다른 타입은 기존 로직 사용
+          state.typeCounts[notification.type]++;
+        }
       }
  
       // 냉장고 알림 처리
@@ -305,20 +327,70 @@ export default {
       state.typeCounts.INQUIRY_REPLY = 0;
     },
     
-    // 유저관리 페이지 진입 시 MANAGER_CHAT 알림 제거
+    // 유저관리 페이지 진입 시 MANAGER_CHAT 알림 제거하지 않음 (실제 unReadCount 기반으로 유지)
     clearAdminChatNotifications(state) {
-      state.typeCounts.MANAGER_CHAT = 0;
+      // MANAGER_CHAT 배지는 실제 unReadCount 기반으로 유지하므로 제거하지 않음
+      console.log('🧹 clearAdminChatNotifications 호출 - MANAGER_CHAT 배지 유지:', {
+        currentValue: state.typeCounts.MANAGER_CHAT,
+        userManagementState: state.userManagementBadgeState,
+        message: 'MANAGER_CHAT 배지는 실제 unReadCount 기반으로 유지'
+      });
     },
 
-    // 채팅 알림 제거
+    // 채팅 알림 제거 (MANAGER_CHAT 배지는 유지)
     clearChatNotifications(state) {
       state.typeCounts.GROUP_CHAT = 0;
       state.typeCounts.ROOM_FULL = 0;
+      // MANAGER_CHAT 배지는 유지 (유저 관리 페이지에서 관리)
+      console.log('🧹 채팅 알림 제거 (MANAGER_CHAT 배지 유지):', {
+        GROUP_CHAT: state.typeCounts.GROUP_CHAT,
+        ROOM_FULL: state.typeCounts.ROOM_FULL,
+        MANAGER_CHAT: state.typeCounts.MANAGER_CHAT
+      });
     },
 
     // 채팅 배지 상태 직접 설정 (방 목록의 미읽음 합계를 반영)
     setAdminChatCount(state, count) {
-      state.typeCounts.MANAGER_CHAT = count > 0 ? 1 : 0;
+      const oldValue = state.typeCounts.MANAGER_CHAT;
+      const newValue = count > 0 ? 1 : 0;
+      state.typeCounts.MANAGER_CHAT = newValue;
+      
+      // MANAGER_CHAT 배지 상태를 sessionStorage에 저장하여 페이지 이동 시에도 유지
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('managerChatBadgeState', JSON.stringify({
+          count: newValue,
+          timestamp: Date.now()
+        }));
+      }
+      
+      console.log('🏪 Store MANAGER_CHAT 배지 변경:', {
+        oldValue,
+        newValue,
+        inputCount: count,
+        stackTrace: new Error().stack
+      });
+    },
+
+    // 유저 관리 페이지에서 배지 상태 설정 (실제 unReadCount 기반)
+    setUserManagementBadgeState(state, { hasUnreadMessages, isSetByUserManagement = true }) {
+      state.userManagementBadgeState = {
+        isSetByUserManagement,
+        hasUnreadMessages
+      };
+      
+      // 배지 상태를 sessionStorage에 저장하여 페이지 이동 시에도 유지
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('userManagementBadgeState', JSON.stringify({
+          hasUnreadMessages,
+          isSetByUserManagement,
+          timestamp: Date.now()
+        }));
+      }
+      
+      console.log('👤 유저 관리 배지 상태 설정:', {
+        hasUnreadMessages,
+        isSetByUserManagement
+      });
     },
     setGroupChatCount(state, count) {
       state.typeCounts.GROUP_CHAT = count > 0 ? 1 : 0;
@@ -333,6 +405,46 @@ export default {
     }
   },
   actions: {
+    // sessionStorage에서 배지 상태 복원
+    restoreBadgeStateFromStorage({ commit }) {
+      if (typeof window !== 'undefined') {
+        try {
+          // MANAGER_CHAT 배지 상태 복원
+          const managerChatBadgeState = sessionStorage.getItem('managerChatBadgeState');
+          if (managerChatBadgeState) {
+            const badgeData = JSON.parse(managerChatBadgeState);
+            // 24시간 이내의 데이터만 복원 (너무 오래된 데이터는 무시)
+            const isRecent = Date.now() - badgeData.timestamp < 24 * 60 * 60 * 1000;
+            if (isRecent) {
+              commit('setAdminChatCount', badgeData.count);
+              console.log('🔄 MANAGER_CHAT 배지 상태 복원:', badgeData);
+            } else {
+              console.log('🔄 MANAGER_CHAT 배지 상태 만료됨, 복원하지 않음:', badgeData);
+            }
+          }
+          
+          // 유저 관리 배지 상태 복원
+          const userManagementBadgeState = sessionStorage.getItem('userManagementBadgeState');
+          if (userManagementBadgeState) {
+            const badgeData = JSON.parse(userManagementBadgeState);
+            // 24시간 이내의 데이터만 복원
+            const isRecent = Date.now() - badgeData.timestamp < 24 * 60 * 60 * 1000;
+            if (isRecent) {
+              commit('setUserManagementBadgeState', {
+                hasUnreadMessages: badgeData.hasUnreadMessages,
+                isSetByUserManagement: badgeData.isSetByUserManagement
+              });
+              console.log('🔄 유저 관리 배지 상태 복원:', badgeData);
+            } else {
+              console.log('🔄 유저 관리 배지 상태 만료됨, 복원하지 않음:', badgeData);
+            }
+          }
+        } catch (error) {
+          console.error('배지 상태 복원 실패:', error);
+        }
+      }
+    },
+
     initSSE(_, store) {
       // 전역 store 인스턴스 전달받아 사용
       const targetStore = store || this._vm?.$store;
@@ -386,8 +498,9 @@ export default {
       commit('clearInquiryNotifications');
     },
     
-    // 유저관리 페이지 진입 시 MANAGER_CHAT 알림 제거
+    // 유저관리 페이지 진입 시 MANAGER_CHAT 알림 제거하지 않음 (실제 unReadCount 기반으로 유지)
     clearAdminChatNotificationsOnEnter({ commit }) {
+      // MANAGER_CHAT 배지는 실제 unReadCount 기반으로 유지하므로 제거하지 않음
       commit('clearAdminChatNotifications');
     }
     ,
@@ -412,20 +525,154 @@ export default {
           const chatData = await chatResponse.json();
           allRooms = chatData.result || [];
           
-          // 첫 번째 방은 관리자 채팅, 나머지는 그룹 채팅
-          const [, ...groupRooms] = allRooms;
-          
-          // 그룹 채팅 미읽음 확인
-          const groupHasUnread = groupRooms?.some(room => (room.unReadCount || 0) > 0);
-          commit('setGroupChatCount', groupHasUnread ? 1 : 0);
+        // 첫 번째 방은 관리자 채팅, 나머지는 그룹 채팅
+        const [managerRoom, ...groupRooms] = allRooms;
+        
+        // 모든 채팅방의 unReadCount 합계로 계산
+        const managerUnreadCount = managerRoom?.unReadCount || 0;
+        const groupUnreadCount = groupRooms?.reduce((sum, room) => sum + (room.unReadCount || 0), 0) || 0;
+        const totalUnreadCount = managerUnreadCount + groupUnreadCount;
+        commit('setGroupChatCount', totalUnreadCount > 0 ? 1 : 0);
+        
+        // 로그 출력
+        console.log('🔧 updateChatBadgesOnFridgeEnter - 모든 채팅방 unReadCount 합계로 배지 계산:', {
+          managerUnreadCount,
+          groupUnreadCount,
+          totalUnreadCount,
+          totalRooms: allRooms.length,
+          message: '관리자 채팅방과 그룹 채팅방 모두 포함하여 배지 계산'
+        });
         }
 
         // 관리자 채팅 미읽음 확인 (채팅방 목록의 첫 번째 방이 관리자 채팅방)
         const adminHasUnread = allRooms.length > 0 && (allRooms[0]?.unReadCount || 0) > 0;
-        commit('setAdminChatCount', adminHasUnread ? 1 : 0);
+        
+        // 냉장고 진입 시 유저 관리 배지 상태 초기화 (실제 unReadCount 기반)
+        commit('setUserManagementBadgeState', { 
+          hasUnreadMessages: adminHasUnread,
+          isSetByUserManagement: true 
+        });
         
       } catch (error) {
         console.error('채팅 배지 상태 업데이트 실패:', error);
+      }
+    },
+
+    // 그룹 채팅 배지만 동기화 (MANAGER_CHAT 배지는 건드리지 않음)
+    async updateGroupChatBadgeOnly({ commit }, fridgeId) {
+      try {
+        // 일반 채팅방 목록 조회
+        const chatResponse = await fetch(`${process.env.VUE_APP_API_BASE_URL}/chat/my/rooms/${fridgeId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          }
+        });
+        
+        if (chatResponse.ok) {
+          const chatData = await chatResponse.json();
+          const allRooms = chatData.result || [];
+          
+          // 첫 번째 방은 관리자 채팅, 나머지는 그룹 채팅
+          const [managerRoom, ...groupRooms] = allRooms;
+          
+          // 모든 채팅방의 unReadCount 합계로 계산
+          const managerUnreadCount = managerRoom?.unReadCount || 0;
+          const groupUnreadCount = groupRooms?.reduce((sum, room) => sum + (room.unReadCount || 0), 0) || 0;
+          const totalUnreadCount = managerUnreadCount + groupUnreadCount;
+          commit('setGroupChatCount', totalUnreadCount > 0 ? 1 : 0);
+        }
+        
+      } catch (error) {
+        console.error('그룹 채팅 배지 상태 업데이트 실패:', error);
+      }
+    },
+
+    // 냉장고 진입 시 유저 관리 페이지 배지 상태 초기 설정
+    async initializeUserManagementBadge({ commit, state }, fridgeId) {
+      try {
+        // 채팅방 목록 조회하여 실제 unReadCount 확인 (유저 관리 채팅방은 첫 번째 방)
+        const chatResponse = await fetch(`${process.env.VUE_APP_API_BASE_URL}/chat/my/rooms/${fridgeId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          }
+        });
+        
+        if (chatResponse.ok) {
+          const chatData = await chatResponse.json();
+          const allRooms = chatData.result || [];
+          
+          // 첫 번째 방이 관리자 채팅방 (유저 관리 채팅방)
+          const managerRoom = allRooms[0];
+          const hasUnreadMessages = managerRoom && (managerRoom.unReadCount || 0) > 0;
+          
+          console.log('🚀 냉장고 진입 시 유저 관리 배지 초기 설정 (채팅방 목록 기반):', {
+            fridgeId,
+            managerRoomUnReadCount: managerRoom?.unReadCount || 0,
+            hasUnreadMessages,
+            totalRooms: allRooms.length,
+            currentBadgeState: state.typeCounts.MANAGER_CHAT
+          });
+          
+          // 유저 관리 배지 상태 설정
+          commit('setUserManagementBadgeState', { 
+            hasUnreadMessages,
+            isSetByUserManagement: true 
+          });
+          
+          // MANAGER_CHAT 배지 상태도 설정
+          commit('setAdminChatCount', hasUnreadMessages ? 1 : 0);
+        }
+        
+      } catch (error) {
+        console.error('유저 관리 배지 초기 설정 실패:', error);
+      }
+    },
+
+    // 유저 관리 배지를 실제 채팅방 목록의 unReadCount와 동기화
+    async syncUserManagementBadgeWithUnreadCount({ commit, state }, fridgeId) {
+      try {
+        // 채팅방 목록 조회하여 실제 unReadCount 확인 (유저 관리 채팅방은 첫 번째 방)
+        const chatResponse = await fetch(`${process.env.VUE_APP_API_BASE_URL}/chat/my/rooms/${fridgeId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          }
+        });
+        
+        if (chatResponse.ok) {
+          const chatData = await chatResponse.json();
+          const allRooms = chatData.result || [];
+          
+          // 첫 번째 방이 관리자 채팅방 (유저 관리 채팅방)
+          const managerRoom = allRooms[0];
+          const hasUnreadMessages = managerRoom && (managerRoom.unReadCount || 0) > 0;
+          
+          // 항상 배지 상태 업데이트 (초기 로드 시에도 배지가 표시되도록)
+          const currentState = state.userManagementBadgeState;
+          console.log('🔄 유저 관리 배지 상태 동기화 (채팅방 목록 기반):', {
+            fridgeId,
+            managerRoomUnReadCount: managerRoom?.unReadCount || 0,
+            hasUnreadMessages,
+            previousState: currentState.hasUnreadMessages,
+            totalRooms: allRooms.length,
+            currentBadgeState: state.typeCounts.MANAGER_CHAT
+          });
+          
+          // 유저 관리 배지 상태 업데이트
+          commit('setUserManagementBadgeState', { 
+            hasUnreadMessages,
+            isSetByUserManagement: true 
+          });
+          
+          // MANAGER_CHAT 배지 상태는 유저 관리 페이지에서만 관리 (다른 곳에서는 건드리지 않음)
+          console.log('🔄 syncUserManagementBadgeWithUnreadCount - MANAGER_CHAT 배지 상태 유지:', {
+            hasUnreadMessages,
+            currentBadgeState: state.typeCounts.MANAGER_CHAT,
+            message: 'MANAGER_CHAT 배지는 유저 관리 페이지에서만 관리'
+          });
+        }
+        
+      } catch (error) {
+        console.error('유저 관리 배지 동기화 실패:', error);
       }
     }
   },
@@ -434,6 +681,7 @@ export default {
     notificationCount: state => state.notificationCount,
     typeCounts: state => state.typeCounts,
     isSSEConnected: state => state.isSSEConnected,
+    userManagementBadgeState: state => state.userManagementBadgeState,
     
 
     // 냉장고별 알림 관련 getter
